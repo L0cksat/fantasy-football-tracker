@@ -1,0 +1,42 @@
+:root {
+  --ft-bg: #07140d;
+  --ft-raised: #102419;
+  --ft-panel: #0c1c13;
+  --ft-lime: #b6f34a;
+  --ft-cream: #eef6e8;
+  --ft-muted: #93a894;
+  --ft-border: rgba(182, 243, 74, 0.18);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ft-cream);
+  font-family: "Source Sans 3", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(ellipse at 10% -10%, rgba(182, 243, 74, 0.16), transparent 42%),
+    radial-gradient(ellipse at 100% 100%, rgba(20, 80, 40, 0.45), transparent 40%),
+    var(--ft-bg);
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ft-shell {
+  min-height: 100vh;
+}
+
+.ft-main {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 4rem;
+}

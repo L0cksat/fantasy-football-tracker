@@ -1,0 +1,281 @@
+<section class="dash">
+  <header class="dash-hero">
+    <p class="eyebrow">SofaScore Fantasy tracker</p>
+    <h1>Your leagues, weeks, and points</h1>
+    <p class="lede">
+      One dashboard for the squad you picked, how this gameweek scored, and how it stacks up against another week.
+    </p>
+  </header>
+
+  @if (error(); as message) {
+    <p class="banner">{{ message }}</p>
+  }
+  @if (loading()) {
+    <p class="muted">Loading competitions…</p>
+  }
+
+  @if (competitions().length) {
+    <div class="toolbar">
+      <label>
+        Competition
+        <select [ngModel]="selectedId()" (ngModelChange)="onCompetitionChange($event)">
+          @for (comp of competitions(); track comp.id) {
+            <option [ngValue]="comp.id">{{ comp.name }} · {{ comp.season }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Squad gameweek
+        <select [ngModel]="gameweek()" (ngModelChange)="onGameweekChange($event)">
+          @for (week of selectedCompetition()?.gameweeks ?? []; track week) {
+            <option [ngValue]="week">GW{{ week }}</option>
+          }
+        </select>
+      </label>
+    </div>
+  }
+
+  @if (totalsView(); as totals) {
+    <section class="totals">
+      <article>
+        <span>Season total</span>
+        <strong>{{ totals.totalPoints | number: '1.0-1' }}</strong>
+      </article>
+      @for (week of totals.gameweeks; track week.number) {
+        <article>
+          <span>{{ week.name }}</span>
+          <strong>{{ week.points | number: '1.0-1' }}</strong>
+        </article>
+      }
+    </section>
+  }
+
+  @if (teamView(); as team) {
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>{{ team.team.name }}</h2>
+          <p class="muted">
+            {{ team.gameweek.name }} · {{ team.gameweek.status }}
+            @if (team.team.managerName) {
+              · {{ team.team.managerName }}
+            }
+            @if (team.tripleCaptain) {
+              · Triple captain
+            }
+          </p>
+        </div>
+        <p class="score">{{ team.teamPoints | number: '1.0-1' }} <span>pts</span></p>
+      </div>
+
+      <h3>Starting XI</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Pos</th>
+              <th>Club</th>
+              <th class="num">Pts</th>
+              <th class="num">Rating</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pick of starters(); track pick.playerId) {
+              <tr>
+                <td>
+                  <span class="player">
+                    @if (pick.playerPortraitUrl) {
+                      <img class="portrait" [src]="pick.playerPortraitUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                    }
+                    <span>
+                      {{ pick.name }}
+                      @if (pick.captain && team.tripleCaptain) {
+                        <em class="chip">TC ×3</em>
+                      } @else if (pick.captain) {
+                        <em class="chip">C ×2</em>
+                      }
+                      @if (pick.viceCaptain) {
+                        <em class="chip chip-dim">VC</em>
+                      }
+                    </span>
+                  </span>
+                </td>
+                <td>{{ pick.position }}</td>
+                <td>
+                  <span class="club">
+                    @if (pick.clubCrestUrl) {
+                      <img class="crest" [src]="pick.clubCrestUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                    }
+                    {{ pick.club || '—' }}
+                  </span>
+                </td>
+                <td class="num">{{ pick.points | number: '1.0-1' }}</td>
+                <td class="num">{{ pick.rating != null ? (pick.rating | number: '1.1-1') : '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Bench</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Pos</th>
+              <th>Club</th>
+              <th class="num">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pick of bench(); track pick.playerId) {
+              <tr>
+                <td>
+                  <span class="player">
+                    @if (pick.playerPortraitUrl) {
+                      <img class="portrait" [src]="pick.playerPortraitUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                    }
+                    <span>
+                      {{ pick.name }}
+                      @if (pick.captain && team.tripleCaptain) {
+                        <em class="chip">TC ×3</em>
+                      } @else if (pick.captain) {
+                        <em class="chip">C ×2</em>
+                      }
+                    </span>
+                  </span>
+                </td>
+                <td>{{ pick.position }}</td>
+                <td>
+                  <span class="club">
+                    @if (pick.clubCrestUrl) {
+                      <img class="crest" [src]="pick.clubCrestUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                    }
+                    {{ pick.club || '—' }}
+                  </span>
+                </td>
+                <td class="num">{{ pick.points | number: '1.0-1' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (team.transfers.length) {
+        <h3>Transfers</h3>
+        @if (team.transferPenalty > 0) {
+          <p class="muted">Hit −{{ team.transferPenalty | number: '1.0-1' }} pts</p>
+        }
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Player</th>
+                <th>Pos</th>
+                <th>Club</th>
+                <th class="num">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (move of team.transfers; track move.direction + '-' + move.playerId) {
+                <tr>
+                  <td>
+                    <em class="chip" [class.chip-out]="move.direction === 'out'">
+                      {{ move.direction === 'in' ? 'In' : 'Out' }}
+                    </em>
+                  </td>
+                  <td>
+                    <span class="player">
+                      @if (move.playerPortraitUrl) {
+                        <img class="portrait" [src]="move.playerPortraitUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                      }
+                      {{ move.name }}
+                    </span>
+                  </td>
+                  <td>{{ move.position || '—' }}</td>
+                  <td>
+                    <span class="club">
+                      @if (move.clubCrestUrl) {
+                        <img class="crest" [src]="move.clubCrestUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                      }
+                      {{ move.club || '—' }}
+                    </span>
+                  </td>
+                  <td class="num">{{ move.price != null ? (move.price | number: '1.1-1') : '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Compare weeks</h2>
+      <div class="toolbar compact">
+        <label>
+          From
+          <select [ngModel]="fromGw()" (ngModelChange)="fromGw.set($event); onCompareChange()">
+            @for (week of selectedCompetition()?.gameweeks ?? []; track week) {
+              <option [ngValue]="week">GW{{ week }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          To
+          <select [ngModel]="toGw()" (ngModelChange)="toGw.set($event); onCompareChange()">
+            @for (week of selectedCompetition()?.gameweeks ?? []; track week) {
+              <option [ngValue]="week">GW{{ week }}</option>
+            }
+          </select>
+        </label>
+      </div>
+    </div>
+
+    @if (compareView(); as compare) {
+      <p class="compare-sum">
+        Team {{ compare.teamFromPoints | number: '1.0-1' }}
+        → {{ compare.teamToPoints | number: '1.0-1' }}
+        <strong [ngClass]="{ up: compare.teamDelta > 0, down: compare.teamDelta < 0 }">
+          {{ signed(compare.teamDelta) }}
+        </strong>
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>GW{{ compare.fromGameweek }}</th>
+              <th>GW{{ compare.toGameweek }}</th>
+              <th class="num">Delta</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of compare.players; track row.playerId) {
+              <tr>
+                <td>
+                  <span class="player">
+                    @if (row.playerPortraitUrl) {
+                      <img class="portrait" [src]="row.playerPortraitUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                    }
+                    {{ row.name }}
+                  </span>
+                </td>
+                <td>{{ row.fromPoints | number: '1.0-1' }}</td>
+                <td>{{ row.toPoints | number: '1.0-1' }}</td>
+                <td class="num" [ngClass]="{ up: row.delta > 0, down: row.delta < 0 }">
+                  {{ signed(row.delta) }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</section>

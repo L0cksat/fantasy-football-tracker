@@ -1,0 +1,23 @@
+{
+  "competition": {
+    "id": 17,
+    "name": "Premier League",
+    "slug": "premier-league",
+    "season": "2026/27"
+  },
+  "round": {
+    "week": 3,
+    "name": "GW3",
+    "status": "finished",
+    "startsAt": "2026-08-29",
+    "endsAt": "2026-09-01"
+  },
+  "userTeam": {
+    "name": "Sofa Saints",
+    "manager": "You",
+    "points": 76
+  },
+  "lineup": [
+    { "id": "ss-haaland", "name": "Erling Haaland", "position": "F", "team": "Man City", "isCaptain": false, "onBench": false, "fantasyPoints": 9, "rating": 7.9, "stats": { "goals": 1 } }
+  ]
+}

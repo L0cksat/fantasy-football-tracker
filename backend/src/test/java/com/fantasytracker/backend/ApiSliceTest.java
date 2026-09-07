@@ -1,0 +1,303 @@
+package com.fantasytracker.backend;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.nio.charset.StandardCharsets;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class ApiSliceTest {
+
+	@Autowired
+	private MockMvc mockMvc;
+
+	@BeforeEach
+	void ingestSeedWeeks() throws Exception {
+		ingest("seed/pl-gw1.json");
+		ingest("seed/pl-gw2.json");
+	}
+
+	@Test
+	void competitionsTeamCompareAndTotals() throws Exception {
+		mockMvc.perform(get("/api/v1/competitions"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].name").value("Premier League"))
+				.andExpect(jsonPath("$[0].teamName").value("Sofa Saints"))
+				.andExpect(jsonPath("$[0].gameweeks[0]").value(1))
+				.andExpect(jsonPath("$[0].gameweeks[1]").value(2));
+
+		mockMvc.perform(get("/api/v1/competitions/1/team").param("gameweek", "1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.teamPoints").value(71.0))
+				.andExpect(jsonPath("$.picks.length()").value(15))
+				.andExpect(jsonPath("$.tripleCaptain").value(false))
+				.andExpect(jsonPath("$.picks[?(@.captain==true)].name").value(org.hamcrest.Matchers.hasItem("Mohamed Salah")))
+				.andExpect(jsonPath("$.picks[?(@.captain==true)].points").value(org.hamcrest.Matchers.hasItem(28.0)))
+				.andExpect(jsonPath("$.picks[?(@.captain==true)].basePoints").value(org.hamcrest.Matchers.hasItem(14.0)))
+				.andExpect(jsonPath("$.picks[?(@.name=='Mohamed Salah')].clubCrestUrl")
+						.value(org.hamcrest.Matchers.hasItem("https://img.sofascore.com/api/v1/team/44/image")));
+
+		mockMvc.perform(get("/api/v1/competitions/1/gameweeks/2"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.gameweek.number").value(2))
+				.andExpect(jsonPath("$.teamPoints").value(83.0))
+				.andExpect(jsonPath("$.transfers.length()").value(0));
+
+		mockMvc.perform(get("/api/v1/competitions/1/compare").param("from", "1").param("to", "2"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.teamFromPoints").value(71.0))
+				.andExpect(jsonPath("$.teamToPoints").value(83.0))
+				.andExpect(jsonPath("$.teamDelta").value(12.0))
+				.andExpect(jsonPath("$.players[?(@.name=='Erling Haaland')].delta").value(org.hamcrest.Matchers.hasItem(11.0)));
+
+		mockMvc.perform(get("/api/v1/competitions/1/totals"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.totalPoints").value(154.0))
+				.andExpect(jsonPath("$.gameweeks.length()").value(2));
+	}
+
+	@Test
+	void ingestReplacesPreviousSquadForTheSameGameweek() throws Exception {
+		String replacement = """
+				{
+				  "competition": {
+				    "source": "sofascore",
+				    "externalId": "17",
+				    "name": "Premier League",
+				    "season": "2026/27",
+				    "slug": "premier-league"
+				  },
+				  "gameweek": { "number": 1, "name": "GW1", "status": "finished" },
+				  "team": { "name": "The Inbetweeners FC", "managerName": "Locksat" },
+				  "teamPoints": 12,
+				  "picks": [
+				    {
+				      "player": { "externalId": "975079", "name": "Joao Pedro", "position": "FWD", "club": "Chelsea" },
+				      "role": "starter",
+				      "captain": true,
+				      "viceCaptain": false,
+				      "points": 12,
+				      "rating": 7.5,
+				      "breakdown": {}
+				    }
+				  ]
+				}
+				""";
+		mockMvc.perform(post("/api/v1/ingest/snapshots")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(replacement))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/v1/competitions/1/team").param("gameweek", "1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.team.name").value("The Inbetweeners FC"))
+				.andExpect(jsonPath("$.picks.length()").value(1))
+				.andExpect(jsonPath("$.picks[0].name").value("Joao Pedro"))
+				.andExpect(jsonPath("$.picks[0].externalId").value("975079"))
+				.andExpect(jsonPath("$.picks[0].points").value(24.0))
+				.andExpect(jsonPath("$.picks[0].captainMultiplier").value(2))
+				.andExpect(jsonPath("$.picks[0].playerPortraitUrl")
+						.value("https://img.sofascore.com/api/v1/player/975079/image"));
+	}
+
+	@Test
+	void tripleCaptainTriplesDisplayedCaptainPoints() throws Exception {
+		String triple = """
+				{
+				  "competition": {
+				    "source": "sofascore",
+				    "externalId": "17",
+				    "name": "Premier League",
+				    "season": "2026/27",
+				    "slug": "premier-league"
+				  },
+				  "gameweek": { "number": 1, "name": "GW1", "status": "finished" },
+				  "team": { "name": "The Inbetweeners FC", "managerName": "Locksat" },
+				  "teamPoints": 15,
+				  "tripleCaptain": true,
+				  "picks": [
+				    {
+				      "player": { "externalId": "975079", "name": "Joao Pedro", "position": "FWD", "club": "Chelsea" },
+				      "role": "starter",
+				      "captain": true,
+				      "viceCaptain": false,
+				      "points": 5,
+				      "rating": 7.5,
+				      "breakdown": {}
+				    }
+				  ]
+				}
+				""";
+		mockMvc.perform(post("/api/v1/ingest/snapshots")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(triple))
+				.andExpect(status().isCreated());
+
+		mockMvc.perform(get("/api/v1/competitions/1/team").param("gameweek", "1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.tripleCaptain").value(true))
+				.andExpect(jsonPath("$.teamPoints").value(15.0))
+				.andExpect(jsonPath("$.picks[0].basePoints").value(5.0))
+				.andExpect(jsonPath("$.picks[0].points").value(15.0))
+				.andExpect(jsonPath("$.picks[0].captainMultiplier").value(3));
+	}
+
+	@Test
+	void teamViewShowsTransfersWhenSquadChanges() throws Exception {
+		String week1 = """
+				{
+				  "competition": {
+				    "source": "sofascore",
+				    "externalId": "17-transfers",
+				    "name": "Premier League Transfers",
+				    "season": "2026/27",
+				    "slug": "premier-league-transfers"
+				  },
+				  "gameweek": { "number": 1, "name": "GW1", "status": "finished" },
+				  "team": { "name": "Transfer FC", "managerName": "Locksat" },
+				  "teamPoints": 10,
+				  "picks": [
+				    {
+				      "player": { "externalId": "100", "name": "Kaoru Mitoma", "position": "MID", "club": "Brighton" },
+				      "role": "starter",
+				      "captain": false,
+				      "viceCaptain": false,
+				      "points": 5,
+				      "price": 5.0,
+				      "rating": 7.0,
+				      "breakdown": {}
+				    },
+				    {
+				      "player": { "externalId": "101", "name": "Cole Palmer", "position": "MID", "club": "Chelsea" },
+				      "role": "starter",
+				      "captain": true,
+				      "viceCaptain": false,
+				      "points": 8,
+				      "price": 8.0,
+				      "rating": 7.5,
+				      "breakdown": {}
+				    }
+				  ]
+				}
+				""";
+		String week2 = """
+				{
+				  "competition": {
+				    "source": "sofascore",
+				    "externalId": "17-transfers",
+				    "name": "Premier League Transfers",
+				    "season": "2026/27",
+				    "slug": "premier-league-transfers"
+				  },
+				  "gameweek": { "number": 2, "name": "GW2", "status": "finished" },
+				  "team": { "name": "Transfer FC", "managerName": "Locksat" },
+				  "teamPoints": 12,
+				  "transferPenalty": 5,
+				  "picks": [
+				    {
+				      "player": { "externalId": "102", "name": "Marcelino Nunez", "position": "MID", "club": "Ipswich Town" },
+				      "role": "starter",
+				      "captain": false,
+				      "viceCaptain": false,
+				      "points": 4,
+				      "price": 4.0,
+				      "rating": 6.8,
+				      "breakdown": {}
+				    },
+				    {
+				      "player": { "externalId": "101", "name": "Cole Palmer", "position": "MID", "club": "Chelsea" },
+				      "role": "starter",
+				      "captain": true,
+				      "viceCaptain": false,
+				      "points": 8,
+				      "price": 8.1,
+				      "rating": 7.6,
+				      "breakdown": {}
+				    }
+				  ]
+				}
+				""";
+		String created = mockMvc.perform(post("/api/v1/ingest/snapshots")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(week1))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		mockMvc.perform(post("/api/v1/ingest/snapshots")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(week2))
+				.andExpect(status().isCreated());
+
+		int competitionId = new com.fasterxml.jackson.databind.ObjectMapper().readTree(created).get("competitionId").asInt();
+		mockMvc.perform(get("/api/v1/competitions/" + competitionId + "/team").param("gameweek", "2"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.transferPenalty").value(5.0))
+				.andExpect(jsonPath("$.transfers.length()").value(2))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='in')].name").value(org.hamcrest.Matchers.hasItem("Marcelino Nunez")))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='in')].price").value(org.hamcrest.Matchers.hasItem(4.0)))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='out')].name").value(org.hamcrest.Matchers.hasItem("Kaoru Mitoma")))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='out')].price").value(org.hamcrest.Matchers.hasItem(5.0)));
+
+		String official = """
+				{
+				  "competition": {
+				    "source": "sofascore",
+				    "externalId": "17-transfers",
+				    "name": "Premier League Transfers",
+				    "season": "2026/27",
+				    "slug": "premier-league-transfers"
+				  },
+				  "team": { "name": "Transfer FC", "managerName": "Locksat" },
+				  "rounds": [
+				    {
+				      "number": 1,
+				      "name": "Round 1",
+				      "transferPenalty": 0,
+				      "transfers": [
+				        {
+				          "playerIn": { "externalId": "979128", "name": "Rayan Cherki", "position": "MID", "club": "Manchester City", "clubExternalId": "17" },
+				          "playerOut": { "externalId": "827606", "name": "Rodri", "position": "MID", "club": "Manchester City", "clubExternalId": "17" },
+				          "priceIn": 8.5,
+				          "priceOut": 6.5
+				        }
+				      ]
+				    }
+				  ]
+				}
+				""";
+		mockMvc.perform(post("/api/v1/ingest/transfers")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(official))
+				.andExpect(status().isCreated());
+		mockMvc.perform(get("/api/v1/competitions/" + competitionId + "/team").param("gameweek", "1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.transfers.length()").value(2))
+				.andExpect(jsonPath("$.transfers[0].direction").value("in"))
+				.andExpect(jsonPath("$.transfers[0].name").value("Rayan Cherki"))
+				.andExpect(jsonPath("$.transfers[0].price").value(8.5))
+				.andExpect(jsonPath("$.transfers[1].direction").value("out"))
+				.andExpect(jsonPath("$.transfers[1].name").value("Rodri"))
+				.andExpect(jsonPath("$.transfers[1].price").value(6.5));
+	}
+
+	private void ingest(String classpath) throws Exception {
+		String body = new String(new ClassPathResource(classpath).getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+		mockMvc.perform(post("/api/v1/ingest/snapshots")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(body))
+				.andExpect(status().isCreated());
+	}
+}

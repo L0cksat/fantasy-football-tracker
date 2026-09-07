@@ -1,0 +1,38 @@
+{
+  "competition": {
+    "source": "sofascore",
+    "externalId": "17",
+    "name": "Premier League",
+    "season": "2026/27",
+    "slug": "premier-league"
+  },
+  "gameweek": {
+    "number": 2,
+    "name": "GW2",
+    "status": "finished",
+    "startsAt": "2026-08-22",
+    "endsAt": "2026-08-25"
+  },
+  "team": {
+    "name": "Sofa Saints",
+    "managerName": "You"
+  },
+  "teamPoints": 83,
+  "picks": [
+    { "player": { "externalId": "ss-alisson", "name": "Alisson", "position": "GK", "club": "Liverpool" }, "role": "starter", "captain": false, "viceCaptain": false, "points": 2, "rating": 6.3, "breakdown": { "saves": 1, "goalsConceded": 2 } },
+    { "player": { "externalId": "ss-saliba", "name": "William Saliba", "position": "DEF", "club": "Arsenal" }, "role": "starter", "captain": false, "viceCaptain": false, "points": 9, "rating": 8.0, "breakdown": { "cleanSheet": 1, "clearances": 12 } },
+    { "player": { "externalId": "ss-gabriel", "name": "Gabriel Magalhaes", "position": "DEF", "club": "Arsenal" }, "role": "starter", "captain": false, "viceCaptain": false, "points": 8, "rating": 7.7, "breakdown": { "cleanSheet": 1, "goals": 1 } },
+    { "player": { "externalId": "ss-vvd", "name": "Virgil van Dijk", "position": "DEF", "club": "Liverpool" }, "role": "starter", "captain": false, "viceCaptain": false, "points": 3, "rating": 6.5, "breakdown": { "goalsConceded": 2 } },
+    { "player": { "externalId": "ss-porro", "name": "Pedro Porro", "position": "DEF", "club": "Tottenham" }, "role": "starter", "captain": false, "viceCaptain": false, "points": 6, "rating": 7.1, "breakdown": { "assists": 1 } },
+    { "player": { "externalId": "ss-palmer", "name": "Cole Palmer", "position": "MID", "club": "Chelsea" }, "role": "starter", "captain": false, "viceCaptain": true, "points": 12, "rating": 8.4, "breakdown": { "goals": 1, "assists": 1 } },
+    { "player": { "externalId": "ss-saka", "name": "Bukayo Saka", "position": "MID", "club": "Arsenal" }, "role": "starter", "captain": false, "viceCaptain": false, "points": 10, "rating": 8.2, "breakdown": { "goals": 1, "keyPasses": 3 } },
+    { "player": { "externalId": "ss-salah", "name": "Mohamed Salah", "position": "MID", "club": "Liverpool" }, "role": "starter", "captain": true, "viceCaptain": false, "points": 8, "rating": 7.4, "breakdown": { "assists": 1 } },
+    { "player": { "externalId": "ss-bruno", "name": "Bruno Fernandes", "position": "MID", "club": "Man United" }, "role": "starter", "captain": false, "viceCaptain": false, "points": 5, "rating": 6.9, "breakdown": { "keyPasses": 3 } },
+    { "player": { "externalId": "ss-haaland", "name": "Erling Haaland", "position": "FWD", "club": "Man City" }, "role": "starter", "captain": false, "viceCaptain": false, "points": 13, "rating": 8.8, "breakdown": { "goals": 2 } },
+    { "player": { "externalId": "ss-watkins", "name": "Ollie Watkins", "position": "FWD", "club": "Aston Villa" }, "role": "starter", "captain": false, "viceCaptain": false, "points": 7, "rating": 7.2, "breakdown": { "assists": 1 } },
+    { "player": { "externalId": "ss-raya", "name": "David Raya", "position": "GK", "club": "Arsenal" }, "role": "bench", "captain": false, "viceCaptain": false, "points": 6, "rating": 7.3, "breakdown": { "cleanSheet": 1 } },
+    { "player": { "externalId": "ss-aina", "name": "Ola Aina", "position": "DEF", "club": "Nottingham Forest" }, "role": "bench", "captain": false, "viceCaptain": false, "points": 2, "rating": 6.4, "breakdown": {} },
+    { "player": { "externalId": "ss-mbeumo", "name": "Bryan Mbeumo", "position": "MID", "club": "Man United" }, "role": "bench", "captain": false, "viceCaptain": false, "points": 4, "rating": 6.8, "breakdown": { "shots": 2 } },
+    { "player": { "externalId": "ss-isak", "name": "Alexander Isak", "position": "FWD", "club": "Liverpool" }, "role": "bench", "captain": false, "viceCaptain": false, "points": 1, "rating": 6.1, "breakdown": {} }
+  ]
+}
