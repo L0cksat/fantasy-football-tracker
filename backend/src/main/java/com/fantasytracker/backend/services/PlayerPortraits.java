@@ -8,9 +8,6 @@ public final class PlayerPortraits {
 	}
 
 	public static String url(String source, String externalId) {
-		if (source == null || !"sofascore".equalsIgnoreCase(source)) {
-			return null;
-		}
 		if (externalId == null || externalId.isBlank() || !externalId.chars().allMatch(Character::isDigit)) {
 			return null;
 		}

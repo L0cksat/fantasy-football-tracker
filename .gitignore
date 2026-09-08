@@ -20,6 +20,7 @@ frontend/out-tsc/
 collector/.venv/
 collector/__pycache__/
 collector/**/__pycache__/
+collector/cache/
 *.pyc
 
 # OS / IDE

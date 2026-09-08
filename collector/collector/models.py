@@ -122,7 +122,7 @@ class FantasyAdapter:
     def fetch_competitions(self) -> list[dict[str, Any]]:
         raise NotImplementedError
 
-    def fetch_squad(self, competition_slug: str) -> dict[str, Any]:
+    def fetch_squad(self, competition_slug: str, gameweek: int | None = None) -> dict[str, Any]:
         raise NotImplementedError
 
     def fetch_gameweek_scores(self, competition_slug: str, gameweek: int) -> Snapshot:

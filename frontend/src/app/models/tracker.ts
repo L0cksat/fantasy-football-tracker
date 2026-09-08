@@ -7,10 +7,27 @@ export interface Competition {
   slug: string;
   teamName: string | null;
   gameweeks: number[];
+  logoUrl: string | null;
+  logoDarkUrl: string | null;
+  flagUrl: string | null;
+  countryName: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
 }
 
 export interface TeamView {
-  competition: { id: number; name: string; season: string; slug: string };
+  competition: {
+    id: number;
+    name: string;
+    season: string;
+    slug: string;
+    logoUrl: string | null;
+    logoDarkUrl: string | null;
+    flagUrl: string | null;
+    countryName: string | null;
+    primaryColor: string | null;
+    secondaryColor: string | null;
+  };
   team: { id: number; name: string; managerName: string | null };
   gameweek: {
     number: number;

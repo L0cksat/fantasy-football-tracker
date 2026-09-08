@@ -1,4 +1,16 @@
-<section class="dash">
+@if (pageBrand(); as brand) {
+  <div
+    class="page-brand"
+    [style.--comp-primary]="brand.primary"
+    [style.--comp-secondary]="brand.secondary"
+  >
+    @if (brand.logoUrl) {
+      <img class="page-brand-logo" [src]="brand.logoUrl" alt="" (error)="hideImage($event)">
+    }
+  </div>
+}
+
+<section class="dash" [class.dash-branded]="!!pageBrand()">
   <header class="dash-hero">
     <p class="eyebrow">SofaScore Fantasy tracker</p>
     <h1>Your leagues, weeks, and points</h1>
@@ -52,9 +64,33 @@
 
   @if (teamView(); as team) {
     <section class="panel">
-      <div class="panel-head">
-        <div>
-          <h2>{{ team.team.name }}</h2>
+      <div
+        class="panel-head"
+        [class.panel-head-branded]="!!team.competition.primaryColor"
+        [style.--comp-primary]="team.competition.primaryColor"
+        [style.--comp-secondary]="team.competition.secondaryColor"
+      >
+        @if ((team.competition.logoDarkUrl || team.competition.logoUrl) && team.competition.primaryColor) {
+          <img
+            class="comp-logo-bg"
+            [src]="team.competition.logoDarkUrl || team.competition.logoUrl"
+            alt=""
+            (error)="hideImage($event)"
+          >
+        }
+        <div class="panel-head-main">
+          <h2 class="team-title">
+            {{ team.team.name }}
+            @if (team.competition.logoUrl) {
+              <img class="comp-logo" [src]="team.competition.logoUrl" alt="" (error)="hideImage($event)">
+            }
+            @if (team.competition.flagUrl) {
+              <img class="comp-flag" [src]="team.competition.flagUrl" alt="" (error)="hideImage($event)">
+            }
+            @if (team.competition.countryName) {
+              <span class="comp-country">{{ team.competition.countryName }}</span>
+            }
+          </h2>
           <p class="muted">
             {{ team.gameweek.name }} · {{ team.gameweek.status }}
             @if (team.team.managerName) {

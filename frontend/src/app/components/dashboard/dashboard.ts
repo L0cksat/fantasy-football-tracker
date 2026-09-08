@@ -28,6 +28,21 @@ export class DashboardComponent {
     this.competitions().find((item) => item.id === this.selectedId()) ?? null,
   );
 
+  readonly pageBrand = computed(() => {
+    const selected = this.selectedCompetition();
+    const teamComp = this.teamView()?.competition;
+    const primary = selected?.primaryColor ?? teamComp?.primaryColor ?? null;
+    const secondary = selected?.secondaryColor ?? teamComp?.secondaryColor ?? null;
+    if (!primary || !secondary) {
+      return null;
+    }
+    return {
+      primary,
+      secondary,
+      logoUrl: selected?.logoDarkUrl ?? selected?.logoUrl ?? teamComp?.logoDarkUrl ?? teamComp?.logoUrl ?? null,
+    };
+  });
+
   readonly starters = computed(() =>
     (this.teamView()?.picks ?? []).filter((pick) => pick.role === 'starter'),
   );

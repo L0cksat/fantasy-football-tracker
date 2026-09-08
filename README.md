@@ -35,7 +35,7 @@ H2 + seed JSON (`Sofa Saints`) is still the default if you run the backend with 
 
 ## Collector
 
-Copy Firefox Network JSON from your own logged-in SofaScore Fantasy session (Persist Logs + XHR). Keep the file that starts with `"squad"`, plus the competition meta file and the transfers export.
+Copy Firefox Network JSON from your own logged-in SofaScore Fantasy session (Persist Logs + XHR), **or** paste those same XHR URLs plus your session cookie into `.env` and run `pull`.
 
 ```bash
 cd collector
@@ -43,15 +43,22 @@ python -m pip install -r requirements.txt
 
 python -m collector import path\to\premier-league-squad.json --meta path\to\premier-league.json
 python -m collector import path\to\premier-league-transfers.json --meta path\to\premier-league.json
+
+python -m collector pull --dry-run
+python -m collector pull --competition laliga --dry-run
+python -m collector pull
 ```
 
-The collector POSTs to Spring Boot. It does not log in or scrape the site.
+Weekly Windows task (Monday 21:00): `powershell -ExecutionPolicy Bypass -File collector\register-weekly-task.ps1`
+
+The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull` fetches every competition that has URLs in `.env` (Premier League, LaLiga, Serie A, Ligue 1, Bundesliga, Champions League, Europa League, MLS, Brasileirão). HTTP 401 means refresh `SOFASCORE_SESSION`. Official LaLiga Fantasy is app-only: fill `collector/templates/laliga-fantasy-oficial.xlsx` and run `python -m collector import-excel`.
 
 ## Scoring and media
 
 - SofaScore `fixtures[].score` is **raw**. Captain display is ×2, triple captain is ×3. Team week totals stay SofaScore’s `userRound.score` (already includes the chip).
 - Crests: `https://img.sofascore.com/api/v1/team/{id}/image`
 - Portraits: `https://img.sofascore.com/api/v1/player/{id}/image`
+- Competition logos: `https://img.sofascore.com/api/v1/unique-tournament/{id}/image` (same endpoint the main SofaScore tournament page uses; Champions League is 7, Europa League is 679, MLS is 242, Brasileirão is 325)
 - Transfers: official SofaScore transfers JSON (paired in/out per round). Squad-diff is only a fallback if a week has no official rows.
 
 ## API

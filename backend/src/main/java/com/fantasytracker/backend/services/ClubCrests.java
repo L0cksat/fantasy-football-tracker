@@ -44,11 +44,54 @@ public final class ClubCrests {
 			Map.entry("hull", "96"),
 			Map.entry("hull city", "96"));
 
+	private static final Map<String, String> SOFASCORE_LALIGA_IDS = Map.ofEntries(
+			Map.entry("athletic", "2825"),
+			Map.entry("athletic club", "2825"),
+			Map.entry("athletic bilbao", "2825"),
+			Map.entry("atletico", "2836"),
+			Map.entry("atletico madrid", "2836"),
+			Map.entry("atlético madrid", "2836"),
+			Map.entry("barcelona", "2817"),
+			Map.entry("fc barcelona", "2817"),
+			Map.entry("celta", "2821"),
+			Map.entry("celta vigo", "2821"),
+			Map.entry("alaves", "2885"),
+			Map.entry("alavés", "2885"),
+			Map.entry("deportivo alaves", "2885"),
+			Map.entry("deportivo alavés", "2885"),
+			Map.entry("deportivo", "2832"),
+			Map.entry("deportivo de la coruna", "2832"),
+			Map.entry("deportivo de la coruña", "2832"),
+			Map.entry("elche", "2846"),
+			Map.entry("espanyol", "2814"),
+			Map.entry("getafe", "2859"),
+			Map.entry("levante", "2849"),
+			Map.entry("levante ud", "2849"),
+			Map.entry("malaga", "2830"),
+			Map.entry("málaga", "2830"),
+			Map.entry("málaga cf", "2830"),
+			Map.entry("osasuna", "2820"),
+			Map.entry("rayo", "2818"),
+			Map.entry("rayo vallecano", "2818"),
+			Map.entry("betis", "2816"),
+			Map.entry("real betis", "2816"),
+			Map.entry("real madrid", "2829"),
+			Map.entry("racing", "2835"),
+			Map.entry("racing santander", "2835"),
+			Map.entry("real racing club", "2835"),
+			Map.entry("real sociedad", "2824"),
+			Map.entry("sevilla", "2833"),
+			Map.entry("valencia", "2828"),
+			Map.entry("villarreal", "2819"));
+
 	private ClubCrests() {
 	}
 
 	public static String url(String source, String clubExternalId, String clubName) {
 		String id = blankToNull(clubExternalId);
+		if (id == null) {
+			id = SOFASCORE_LALIGA_IDS.get(normalize(clubName));
+		}
 		if (id == null && (source == null || "sofascore".equalsIgnoreCase(source))) {
 			id = SOFASCORE_PREMIER_LEAGUE_IDS.get(normalize(clubName));
 		}

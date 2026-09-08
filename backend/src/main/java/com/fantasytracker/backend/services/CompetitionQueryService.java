@@ -180,7 +180,13 @@ public class CompetitionQueryService {
 				competition.getSeason(),
 				competition.getSlug(),
 				team != null ? team.getName() : null,
-				numbers);
+				numbers,
+				CompetitionBranding.logoUrl(competition.getSource(), competition.getExternalId()),
+				CompetitionBranding.logoDarkUrl(competition.getSource(), competition.getExternalId()),
+				CompetitionBranding.flagUrl(competition.getSource(), competition.getExternalId()),
+				CompetitionBranding.countryName(competition.getSource(), competition.getExternalId()),
+				CompetitionBranding.primaryColor(competition.getSource(), competition.getExternalId()),
+				CompetitionBranding.secondaryColor(competition.getSource(), competition.getExternalId()));
 	}
 
 	private TeamViewResponse buildTeamView(Competition competition, FantasyTeam team, Gameweek gameweek) {
@@ -223,7 +229,16 @@ public class CompetitionQueryService {
 		BigDecimal teamPoints = teamScore != null ? teamScore.getPoints() : BigDecimal.ZERO;
 		return new TeamViewResponse(
 				new TeamViewResponse.CompetitionSummary(
-						competition.getId(), competition.getName(), competition.getSeason(), competition.getSlug()),
+						competition.getId(),
+						competition.getName(),
+						competition.getSeason(),
+						competition.getSlug(),
+						CompetitionBranding.logoUrl(competition.getSource(), competition.getExternalId()),
+						CompetitionBranding.logoDarkUrl(competition.getSource(), competition.getExternalId()),
+						CompetitionBranding.flagUrl(competition.getSource(), competition.getExternalId()),
+						CompetitionBranding.countryName(competition.getSource(), competition.getExternalId()),
+						CompetitionBranding.primaryColor(competition.getSource(), competition.getExternalId()),
+						CompetitionBranding.secondaryColor(competition.getSource(), competition.getExternalId())),
 				new TeamViewResponse.TeamSummary(team.getId(), team.getName(), team.getManagerName()),
 				new TeamViewResponse.GameweekSummary(
 						gameweek.getNumber(), gameweek.getName(), gameweek.getStatus(),

@@ -14,7 +14,17 @@ public record TeamViewResponse(
 		List<PickView> picks,
 		List<TransferView> transfers) {
 
-	public record CompetitionSummary(Long id, String name, String season, String slug) {
+	public record CompetitionSummary(
+			Long id,
+			String name,
+			String season,
+			String slug,
+			String logoUrl,
+			String logoDarkUrl,
+			String flagUrl,
+			String countryName,
+			String primaryColor,
+			String secondaryColor) {
 	}
 
 	public record TeamSummary(Long id, String name, String managerName) {

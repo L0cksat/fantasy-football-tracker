@@ -10,5 +10,11 @@ public record CompetitionResponse(
 		String season,
 		String slug,
 		String teamName,
-		List<Integer> gameweeks) {
+		List<Integer> gameweeks,
+		String logoUrl,
+		String logoDarkUrl,
+		String flagUrl,
+		String countryName,
+		String primaryColor,
+		String secondaryColor) {
 }

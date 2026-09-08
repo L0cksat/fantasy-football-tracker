@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -53,6 +54,8 @@ POSITION_MAP = {
     "FWD": "FWD",
     "FORWARD": "FWD",
 }
+
+_ROUND_PATH = re.compile(r"/round/\d+(?=/|$)")
 
 
 def normalize_position(value: str | None) -> str | None:
@@ -376,6 +379,17 @@ def _optional_float(value: Any) -> float | None:
     return float(value)
 
 
+class SofaScoreSessionError(RuntimeError):
+    """Cookie missing, expired, or rejected. Refresh SOFASCORE_SESSION from the browser."""
+
+    def __init__(self, status: int) -> None:
+        self.status = status
+        super().__init__(
+            f"SofaScore returned HTTP {status}. Open Firefox while logged into Fantasy, "
+            "copy the Cookie header from a Fantasy XHR, set SOFASCORE_SESSION in .env, and rerun pull."
+        )
+
+
 class SofaScoreAdapter(FantasyAdapter):
     """Loads SofaScore Fantasy data from a local export, or from URLs you paste.
 
@@ -383,12 +397,24 @@ class SofaScoreAdapter(FantasyAdapter):
     session cookie from your own browser and set SOFASCORE_* URLs in .env.
     """
 
-    def __init__(self, session_cookie: str | None = None, timeout: int = 20) -> None:
-        self.session_cookie = session_cookie or os.getenv("SOFASCORE_SESSION", "")
+    def __init__(
+        self,
+        session_cookie: str | None = None,
+        timeout: int = 20,
+        *,
+        competition_url: str | None = None,
+        squad_url: str | None = None,
+        gameweek_url: str | None = None,
+        transfers_url: str | None = None,
+    ) -> None:
+        self.session_cookie = _normalize_session_cookie(
+            session_cookie if session_cookie is not None else os.getenv("SOFASCORE_SESSION", "")
+        )
         self.timeout = timeout
-        self.competition_url = os.getenv("SOFASCORE_COMPETITION_URL", "")
-        self.squad_url = os.getenv("SOFASCORE_SQUAD_URL", "")
-        self.gameweek_url = os.getenv("SOFASCORE_GAMEWEEK_URL", "")
+        self.competition_url = _env_or(competition_url, "SOFASCORE_COMPETITION_URL")
+        self.squad_url = _env_or(squad_url, "SOFASCORE_SQUAD_URL")
+        self.gameweek_url = _env_or(gameweek_url, "SOFASCORE_GAMEWEEK_URL")
+        self.transfers_url = _env_or(transfers_url, "SOFASCORE_TRANSFERS_URL")
 
     def fetch_competitions(self) -> list[dict[str, Any]]:
         if not self.competition_url:
@@ -398,27 +424,200 @@ class SofaScoreAdapter(FantasyAdapter):
             return payload
         return [payload]
 
-    def fetch_squad(self, competition_slug: str) -> dict[str, Any]:
+    def fetch_meta(self) -> dict[str, Any] | None:
+        payloads = self.fetch_competitions()
+        if not payloads:
+            return None
+        first = payloads[0]
+        return first if isinstance(first, dict) else None
+
+    def fetch_rounds(self) -> dict[str, Any] | None:
+        if not self.competition_url:
+            return None
+        url = self.competition_url.rstrip("/") + "/rounds"
+        payload = self._get_json(url, missing_ok=True)
+        return payload if isinstance(payload, dict) else None
+
+    def fetch_squad(
+        self,
+        competition_slug: str,
+        gameweek: int | None = None,
+        *,
+        round_id: int | None = None,
+    ) -> dict[str, Any]:
         if not self.squad_url:
-            raise ValueError("SOFASCORE_SQUAD_URL is empty. Use file import or set the URL from your Network tab.")
-        return self._get_json(self.squad_url)
+            raise ValueError("SOFASCORE_SQUAD_URL is empty. Set it from your Network tab, or use file import.")
+        self._require_round_id(self.squad_url, round_id)
+        return self._get_json(
+            self.squad_url,
+            competition=competition_slug,
+            gameweek=gameweek,
+            round_id=round_id,
+        )
+
+    def fetch_transfers(
+        self,
+        competition_slug: str | None = None,
+        gameweek: int | None = None,
+        *,
+        round_id: int | None = None,
+        missing_ok: bool = False,
+    ) -> dict[str, Any] | None:
+        if not self.transfers_url:
+            raise ValueError(
+                "SOFASCORE_TRANSFERS_URL is empty. Set it from your Network tab, or import transfers JSON."
+            )
+        return self._get_json(
+            self.transfers_url,
+            competition=competition_slug,
+            gameweek=gameweek,
+            round_id=round_id,
+            missing_ok=missing_ok,
+        )
 
     def fetch_gameweek_scores(self, competition_slug: str, gameweek: int) -> Snapshot:
         if not self.gameweek_url:
-            raise ValueError("SOFASCORE_GAMEWEEK_URL is empty. Use `python -m collector import <file.json>` instead.")
-        url = self.gameweek_url.format(competition=competition_slug, gameweek=gameweek)
-        return snapshot_from_payload(self._get_json(url))
+            raise ValueError("SOFASCORE_GAMEWEEK_URL is empty. Use `python -m collector pull` or `import`.")
+        return snapshot_from_payload(
+            self._get_json(self.gameweek_url, competition=competition_slug, gameweek=gameweek)
+        )
 
-    def _get_json(self, url: str) -> Any:
-        parsed = urlparse(url)
+    def _get_json(
+        self,
+        url: str,
+        competition: str | None = None,
+        gameweek: int | None = None,
+        round_id: int | None = None,
+        missing_ok: bool = False,
+    ) -> Any:
+        resolved = _format_url(url, competition=competition, gameweek=gameweek, round_id=round_id)
+        parsed = urlparse(resolved)
         if parsed.scheme not in {"http", "https"}:
             raise ValueError("Only http(s) URLs are allowed")
-        headers = {"Accept": "application/json", "User-Agent": "fantasy-football-tracker-collector/0.1"}
-        if self.session_cookie:
-            headers["Cookie"] = self.session_cookie
-        response = requests.get(url, headers=headers, timeout=self.timeout)
+        response = _http_get(resolved, headers=_browser_headers(self.session_cookie), timeout=self.timeout)
+        if response.status_code in {401, 403}:
+            raise SofaScoreSessionError(response.status_code)
+        if missing_ok and response.status_code == 404:
+            return None
         response.raise_for_status()
         return response.json()
+
+    @staticmethod
+    def _require_round_id(url: str, round_id: int | None) -> None:
+        if round_id is not None:
+            return
+        if "{roundId}" in url or "{round_id}" in url:
+            raise ValueError(
+                "SOFASCORE_SQUAD_URL has {roundId} but competition JSON has no currentRound.id. "
+                "Paste a /round/1088/ squad URL, or check SOFASCORE_COMPETITION_URL."
+            )
+
+
+def round_id_from_meta(meta: dict[str, Any] | None, gameweek: int | None = None) -> int | None:
+    """SofaScore round id: currentRound, or the round whose sequence matches --gameweek."""
+    if not meta:
+        return None
+    user_comp = meta.get("userCompetition") or {}
+    fantasy = user_comp.get("fantasyCompetition") or {}
+    if not fantasy and "fantasyCompetition" in meta:
+        fantasy = meta.get("fantasyCompetition") or {}
+        user_comp = meta if "joinedInRound" in meta or "name" in meta else user_comp
+    rounds = [
+        fantasy.get("currentRound"),
+        fantasy.get("nextRound"),
+        fantasy.get("previousRound"),
+        user_comp.get("joinedInRound"),
+    ]
+    named = [item for item in rounds if isinstance(item, dict) and item.get("id") is not None]
+    for item in meta.get("userRounds") or []:
+        if not isinstance(item, dict):
+            continue
+        fantasy_round = item.get("fantasyRound") if isinstance(item.get("fantasyRound"), dict) else item
+        if fantasy_round.get("id") is not None:
+            named.append(fantasy_round)
+    if gameweek is not None:
+        for item in named:
+            if item.get("sequence") == gameweek:
+                return int(item["id"])
+        known = ", ".join(
+            f"{item.get('sequence')}→{item.get('id')}" for item in named if item.get("sequence") is not None
+        )
+        raise ValueError(
+            f"No SofaScore round with sequence {gameweek} in competition JSON"
+            + (f" (known: {known})" if known else "")
+            + "."
+        )
+    current = fantasy.get("currentRound") or {}
+    if current.get("id") is not None:
+        return int(current["id"])
+    return None
+
+
+def _browser_headers(session_cookie: str) -> dict[str, str]:
+    headers = {
+        "Accept": "application/json",
+        "Accept-Language": "en-GB,en;q=0.9",
+        "Origin": "https://www.sofascore.com",
+        "Referer": "https://www.sofascore.com/fantasy",
+        "X-Requested-With": "XMLHttpRequest",
+    }
+    if session_cookie:
+        headers["Cookie"] = session_cookie
+    return headers
+
+
+def _http_get(url: str, headers: dict[str, str], timeout: int) -> Any:
+    """GET JSON like the site XHR. Prefer curl_cffi so SofaScore does not 403 Python's TLS."""
+    try:
+        from curl_cffi import requests as curl_requests
+
+        return curl_requests.get(url, headers=headers, timeout=timeout, impersonate="chrome")
+    except ImportError:
+        merged = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ),
+            **headers,
+        }
+        return requests.get(url, headers=merged, timeout=timeout)
+
+
+def _env_or(explicit: str | None, key: str) -> str:
+    if explicit is not None:
+        return explicit
+    return os.getenv(key, "")
+
+
+def _normalize_session_cookie(raw: str | None) -> str:
+    text = (raw or "").strip()
+    if text.lower().startswith("cookie:"):
+        text = text[7:].strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        text = text[1:-1]
+    return text
+
+
+def _format_url(
+    url: str,
+    competition: str | None = None,
+    gameweek: int | None = None,
+    round_id: int | None = None,
+) -> str:
+    values: dict[str, Any] = {
+        "competition": competition or "",
+        "gameweek": "" if gameweek is None else gameweek,
+    }
+    if round_id is not None:
+        values["roundId"] = round_id
+        values["round_id"] = round_id
+    try:
+        formatted = url.format(**values)
+    except (KeyError, IndexError, ValueError):
+        formatted = url
+    if round_id is not None:
+        formatted = _ROUND_PATH.sub(f"/round/{round_id}", formatted)
+    return formatted
 
 
 def load_snapshot_file(path: str) -> Snapshot:
