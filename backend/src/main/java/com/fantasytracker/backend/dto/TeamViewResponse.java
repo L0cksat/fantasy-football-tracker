@@ -60,6 +60,7 @@ public record TeamViewResponse(
 			String position,
 			String club,
 			String clubCrestUrl,
-			BigDecimal price) {
+			BigDecimal price,
+			String counterpart) {
 	}
 }

@@ -53,6 +53,7 @@ export interface TransferView {
   club: string | null;
   clubCrestUrl: string | null;
   price: number | null;
+  counterpart: string | null;
 }
 
 export interface PickView {

@@ -62,8 +62,32 @@ class TransferPlayer:
 
 @dataclass
 class TransferPair:
-    playerIn: TransferPlayer
-    playerOut: TransferPlayer
+    playerIn: TransferPlayer | None = None
+    playerOut: TransferPlayer | None = None
+    counterpart: str | None = None
+
+
+def _player_dict(player: TransferPlayer) -> dict[str, Any]:
+    return {
+        "externalId": player.externalId,
+        "name": player.name,
+        "position": player.position,
+        "club": player.club,
+        "clubExternalId": player.clubExternalId,
+    }
+
+
+def _pair_dict(pair: TransferPair) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    if pair.playerIn is not None:
+        payload["playerIn"] = _player_dict(pair.playerIn)
+        payload["priceIn"] = pair.playerIn.price
+    if pair.playerOut is not None:
+        payload["playerOut"] = _player_dict(pair.playerOut)
+        payload["priceOut"] = pair.playerOut.price
+    if pair.counterpart:
+        payload["counterpart"] = pair.counterpart
+    return payload
 
 
 @dataclass
@@ -89,27 +113,7 @@ class TransfersBatch:
                     "number": round_.number,
                     "name": round_.name,
                     "transferPenalty": round_.transferPenalty,
-                    "transfers": [
-                        {
-                            "playerIn": {
-                                "externalId": pair.playerIn.externalId,
-                                "name": pair.playerIn.name,
-                                "position": pair.playerIn.position,
-                                "club": pair.playerIn.club,
-                                "clubExternalId": pair.playerIn.clubExternalId,
-                            },
-                            "playerOut": {
-                                "externalId": pair.playerOut.externalId,
-                                "name": pair.playerOut.name,
-                                "position": pair.playerOut.position,
-                                "club": pair.playerOut.club,
-                                "clubExternalId": pair.playerOut.clubExternalId,
-                            },
-                            "priceIn": pair.playerIn.price,
-                            "priceOut": pair.playerOut.price,
-                        }
-                        for pair in round_.transfers
-                    ],
+                    "transfers": [_pair_dict(pair) for pair in round_.transfers],
                 }
                 for round_ in self.rounds
             ],

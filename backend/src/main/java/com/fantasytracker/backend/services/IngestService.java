@@ -103,14 +103,22 @@ public class IngestService {
 			transferRepository.deleteByFantasyTeam_IdAndGameweek_Id(team.getId(), gameweek.getId());
 			int order = 0;
 			for (TransferPair pair : round.transfers()) {
+				if (pair.playerIn() == null && pair.playerOut() == null) {
+					throw new IllegalArgumentException("Each transfer needs a bought or sold player");
+				}
 				GameweekTransfer row = new GameweekTransfer();
 				row.setFantasyTeam(team);
 				row.setGameweek(gameweek);
 				row.setSortOrder(order++);
-				row.setPlayerIn(upsertPlayer(competition.getSource(), pair.playerIn()));
-				row.setPlayerOut(upsertPlayer(competition.getSource(), pair.playerOut()));
+				if (pair.playerIn() != null) {
+					row.setPlayerIn(upsertPlayer(competition.getSource(), pair.playerIn()));
+				}
+				if (pair.playerOut() != null) {
+					row.setPlayerOut(upsertPlayer(competition.getSource(), pair.playerOut()));
+				}
 				row.setPriceIn(pair.priceIn());
 				row.setPriceOut(pair.priceOut());
+				row.setCounterpart(pair.counterpart());
 				transferRepository.save(row);
 			}
 			applyTransferPenalty(team, gameweek, round.transferPenalty());

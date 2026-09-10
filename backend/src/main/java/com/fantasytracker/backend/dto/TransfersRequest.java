@@ -24,9 +24,10 @@ public record TransfersRequest(
 	}
 
 	public record TransferPair(
-			@NotNull @Valid PlayerPayload playerIn,
-			@NotNull @Valid PlayerPayload playerOut,
+			@Valid PlayerPayload playerIn,
+			@Valid PlayerPayload playerOut,
 			BigDecimal priceIn,
-			BigDecimal priceOut) {
+			BigDecimal priceOut,
+			String counterpart) {
 	}
 }

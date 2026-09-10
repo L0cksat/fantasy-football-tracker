@@ -26,12 +26,13 @@ HEADER = "2F4A89"
 WHITE = "FFFFFF"
 
 SQUAD_EXAMPLE = [
-    [1, "GW1", "finished", 64, False, 0, "EXAMPLE — delete this row", "FWD", "Real Madrid", "starter", True, False, 12, 7.4, 15.0, "", ""],
-    [1, "GW1", "finished", 64, False, 0, "EXAMPLE — bench placeholder", "MID", "Barcelona", "bench", False, True, 2, 6.2, 8.0, "", ""],
+    [1, "GW1", "finished", 64, "EXAMPLE — starter from Team tab", "FWD", "Real Madrid", "starter", 12, 7.4, 15.0, "", ""],
+    [1, "GW1", "finished", 64, "EXAMPLE — owned, not in XI (Squad tab)", "MID", "Barcelona", "squad", "", "", 8.0, "", ""],
 ]
 
 TRANSFER_EXAMPLE = [
-    [2, "GW2", "EXAMPLE — player in", "Real Madrid", "FWD", 15.0, "", "", "EXAMPLE — player out", "Barcelona", "MID", 8.0, "", "", 0],
+    [2, "GW2", "Bought", "EXAMPLE — player bought", "Real Madrid", "FWD", 15.0, "Market", "", ""],
+    [2, "GW2", "Sold", "EXAMPLE — player sold", "Barcelona", "MID", 8.0, "Market", "", ""],
 ]
 
 
@@ -55,20 +56,23 @@ def _readme(sheet: Worksheet) -> None:
     sheet["A1"].font = Font(name="Calibri", size=18, bold=True, color=NAVY)
     lines = [
         "",
-        "The official app has no website JSON export. Copy one week at a time from the Android app into this file.",
+        "The official app starts you with 100M€ and a squad. You buy and sell on the market (or to other managers).",
+        "There are no captains, vice-captains, or triple captain. The bench is a premium app feature — skip it.",
+        "Copy one week at a time from the Android app into this file.",
         "Keep a working copy (for example in Documents). Leave this template in collector/templates/ untouched.",
         "",
-        "1. Competition — your team name, manager, and season (2026/27).",
-        "2. Squads — one row per player, every gameweek. Repeat teamPoints / tripleCaptain / transferPenalty on each row of that week.",
-        "3. Transfers — optional. One row per in/out pair. Skip a week if you made no transfers.",
-        "4. Clubs — SofaScore club IDs for portraits later. Copy sofaScoreClubId onto Squads/Transfers if you want crests now.",
+        "1. Competition — manager name is enough if the official app has no team name (dashboard will use Locksat).",
+        "2. Squads — every player you own that week. Role starter = Team tab XI. Role squad = Squad tab, not in the XI.",
+        "   Repeat teamPoints on each row of that week. teamPoints is the app’s week total for the starting XI.",
+        "3. Transfers — one row per deal. Bought or Sold, with price and who you traded with (Market or a manager name).",
+        "   Buys and sells are independent. You do not need an in/out pair on the same row.",
+        "4. Clubs — SofaScore club IDs for crests. Copy sofaScoreClubId onto Squads/Transfers if you want crests now.",
         "",
         "Rules",
         "• Do not rename sheets or header cells.",
         "• Delete the yellow EXAMPLE rows before import.",
-        "• teamPoints is the app’s week total (already includes captain / chips). Do not double it.",
-        "• Captain: TRUE on one starter. Triple captain: TRUE on every row of that week if you played the chip.",
-        "• Positions: GK, DEF, MID, FWD. Roles: starter or bench.",
+        "• Positions: GK, DEF, MID, FWD. Roles: starter or squad. No player-count cap — list everyone you own.",
+        "• Squad-tab players: leave points blank if you cannot see them (premium bench). Price still helps.",
         "• sofaScorePlayerId / sofaScoreClubId are optional. Blank is fine; we can match names later.",
         "",
         "Import (from the collector folder, backend running):",
@@ -97,12 +101,14 @@ def _competition(sheet: Worksheet) -> None:
         ("managerName", "Locksat"),
         ("season", "2026/27"),
         ("competitionName", "LaLiga Fantasy"),
+        ("startingBudget", "100"),
     ]
     notes = {
-        "teamName": "Required. The name shown in the official app.",
+        "teamName": "Optional if managerName is set. Official app has no club name; leave blank to use the manager.",
         "managerName": "Optional.",
         "season": "Use 2026/27 unless you start a later season.",
         "competitionName": "Shown in the dashboard dropdown.",
+        "startingBudget": "App bank at the start of the season, in millions of euros. Not imported.",
     }
     for index, (field, value) in enumerate(fields, start=2):
         sheet[f"A{index}"] = field
@@ -122,21 +128,18 @@ def _squads(sheet: Worksheet) -> None:
     _header_row(sheet, 1, len(_SQUADS_HEADERS))
     for row in SQUAD_EXAMPLE:
         sheet.append(row)
-    for index in range(3, 5):
+    for index in range(2, 2 + len(SQUAD_EXAMPLE)):
         _fill_row(sheet, index, len(_SQUADS_HEADERS), EXAMPLE)
-    for _ in range(20):
+    for _ in range(40):
         sheet.append([None] * len(_SQUADS_HEADERS))
-    widths = [12, 14, 12, 13, 15, 16, 28, 12, 22, 12, 12, 13, 10, 10, 10, 20, 18]
+    widths = [12, 14, 12, 13, 36, 12, 22, 12, 10, 10, 10, 20, 18]
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[get_column_letter(index)].width = width
     sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = f"A1:{get_column_letter(len(_SQUADS_HEADERS))}25"
+    sheet.auto_filter.ref = f"A1:{get_column_letter(len(_SQUADS_HEADERS))}200"
     _list(sheet, "C2:C200", "finished,live,upcoming")
-    _list(sheet, "H2:H200", "GK,DEF,MID,FWD")
-    _list(sheet, "J2:J200", "starter,bench")
-    _list(sheet, "E2:E200", "TRUE,FALSE")
-    _list(sheet, "K2:K200", "TRUE,FALSE")
-    _list(sheet, "L2:L200", "TRUE,FALSE")
+    _list(sheet, "F2:F200", "GK,DEF,MID,FWD")
+    _list(sheet, "H2:H200", "starter,squad")
 
 
 def _transfers(sheet: Worksheet) -> None:
@@ -146,15 +149,15 @@ def _transfers(sheet: Worksheet) -> None:
     for row in TRANSFER_EXAMPLE:
         sheet.append(row)
     _fill_row(sheet, 2, len(_TRANSFERS_HEADERS), EXAMPLE)
+    _fill_row(sheet, 3, len(_TRANSFERS_HEADERS), EXAMPLE)
     for _ in range(15):
         sheet.append([None] * len(_TRANSFERS_HEADERS))
-    for index in range(1, len(_TRANSFERS_HEADERS) + 1):
-        sheet.column_dimensions[get_column_letter(index)].width = 18
-    sheet.column_dimensions["C"].width = 28
-    sheet.column_dimensions["I"].width = 28
+    widths = [12, 14, 12, 28, 22, 12, 12, 22, 20, 18]
+    for index, width in enumerate(widths, start=1):
+        sheet.column_dimensions[get_column_letter(index)].width = width
     sheet.freeze_panes = "A2"
-    _list(sheet, "E2:E200", "GK,DEF,MID,FWD")
-    _list(sheet, "K2:K200", "GK,DEF,MID,FWD")
+    _list(sheet, "C2:C200", "Bought,Sold")
+    _list(sheet, "F2:F200", "GK,DEF,MID,FWD")
 
 
 def _clubs(sheet: Worksheet) -> None:

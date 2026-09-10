@@ -259,8 +259,14 @@ public class CompetitionQueryService {
 		if (!official.isEmpty()) {
 			List<TeamViewResponse.TransferView> views = new ArrayList<>();
 			for (GameweekTransfer row : official) {
-				views.add(toTransfer("in", competition.getSource(), row.getPlayerIn(), row.getPriceIn()));
-				views.add(toTransfer("out", competition.getSource(), row.getPlayerOut(), row.getPriceOut()));
+				if (row.getPlayerIn() != null) {
+					views.add(toTransfer("in", competition.getSource(), row.getPlayerIn(), row.getPriceIn(),
+							row.getCounterpart()));
+				}
+				if (row.getPlayerOut() != null) {
+					views.add(toTransfer("out", competition.getSource(), row.getPlayerOut(), row.getPriceOut(),
+							row.getCounterpart()));
+				}
 			}
 			return views;
 		}
@@ -301,10 +307,23 @@ public class CompetitionQueryService {
 	}
 
 	private TeamViewResponse.TransferView toTransfer(String direction, String source, SquadPick pick) {
-		return toTransfer(direction, source, pick.getPlayer(), pick.getPrice());
+		return toTransfer(direction, source, pick.getPlayer(), pick.getPrice(), null);
 	}
 
-	private TeamViewResponse.TransferView toTransfer(String direction, String source, Player player, BigDecimal price) {
+	private TeamViewResponse.TransferView toTransfer(
+			String direction,
+			String source,
+			Player player,
+			BigDecimal price) {
+		return toTransfer(direction, source, player, price, null);
+	}
+
+	private TeamViewResponse.TransferView toTransfer(
+			String direction,
+			String source,
+			Player player,
+			BigDecimal price,
+			String counterpart) {
 		return new TeamViewResponse.TransferView(
 				direction,
 				player.getId(),
@@ -314,7 +333,8 @@ public class CompetitionQueryService {
 				player.getPosition(),
 				player.getClub(),
 				ClubCrests.url(source, player.getClubExternalId(), player.getClub()),
-				price);
+				price,
+				counterpart);
 	}
 
 	private boolean tripleCaptain(Long teamId, Long gameweekId) {

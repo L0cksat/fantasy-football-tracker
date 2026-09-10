@@ -49,6 +49,26 @@ export class DashboardComponent {
   readonly bench = computed(() =>
     (this.teamView()?.picks ?? []).filter((pick) => pick.role !== 'starter'),
   );
+  readonly isOfficialLaLiga = computed(
+    () => this.selectedCompetition()?.source === 'laliga-fantasy',
+  );
+  readonly reserveHeading = computed(() => (this.isOfficialLaLiga() ? 'Squad' : 'Bench'));
+  readonly showTransferCounterpart = computed(
+    () =>
+      this.isOfficialLaLiga() ||
+      (this.teamView()?.transfers ?? []).some((move) => !!move.counterpart),
+  );
+
+  transferLabel(direction: string): string {
+    if (this.isOfficialLaLiga()) {
+      return direction === 'in' ? 'Bought' : 'Sold';
+    }
+    return direction === 'in' ? 'In' : 'Out';
+  }
+
+  priceFormat(): string {
+    return this.isOfficialLaLiga() ? '1.1-6' : '1.1-1';
+  }
 
   constructor() {
     this.competitionService.getCompetitions().subscribe({

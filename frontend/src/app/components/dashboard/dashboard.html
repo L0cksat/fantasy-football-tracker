@@ -96,7 +96,7 @@
             @if (team.team.managerName) {
               · {{ team.team.managerName }}
             }
-            @if (team.tripleCaptain) {
+            @if (team.tripleCaptain && !isOfficialLaLiga()) {
               · Triple captain
             }
           </p>
@@ -126,12 +126,12 @@
                     }
                     <span>
                       {{ pick.name }}
-                      @if (pick.captain && team.tripleCaptain) {
+                      @if (!isOfficialLaLiga() && pick.captain && team.tripleCaptain) {
                         <em class="chip">TC ×3</em>
-                      } @else if (pick.captain) {
+                      } @else if (!isOfficialLaLiga() && pick.captain) {
                         <em class="chip">C ×2</em>
                       }
-                      @if (pick.viceCaptain) {
+                      @if (!isOfficialLaLiga() && pick.viceCaptain) {
                         <em class="chip chip-dim">VC</em>
                       }
                     </span>
@@ -154,7 +154,7 @@
         </table>
       </div>
 
-      <h3>Bench</h3>
+      <h3>{{ reserveHeading() }}</h3>
       <div class="table-wrap">
         <table>
           <thead>
@@ -175,9 +175,9 @@
                     }
                     <span>
                       {{ pick.name }}
-                      @if (pick.captain && team.tripleCaptain) {
+                      @if (!isOfficialLaLiga() && pick.captain && team.tripleCaptain) {
                         <em class="chip">TC ×3</em>
-                      } @else if (pick.captain) {
+                      } @else if (!isOfficialLaLiga() && pick.captain) {
                         <em class="chip">C ×2</em>
                       }
                     </span>
@@ -201,7 +201,7 @@
 
       @if (team.transfers.length) {
         <h3>Transfers</h3>
-        @if (team.transferPenalty > 0) {
+        @if (!isOfficialLaLiga() && team.transferPenalty > 0) {
           <p class="muted">Hit −{{ team.transferPenalty | number: '1.0-1' }} pts</p>
         }
         <div class="table-wrap">
@@ -213,6 +213,9 @@
                 <th>Pos</th>
                 <th>Club</th>
                 <th class="num">Price</th>
+                @if (showTransferCounterpart()) {
+                  <th>With</th>
+                }
               </tr>
             </thead>
             <tbody>
@@ -220,7 +223,7 @@
                 <tr>
                   <td>
                     <em class="chip" [class.chip-out]="move.direction === 'out'">
-                      {{ move.direction === 'in' ? 'In' : 'Out' }}
+                      {{ transferLabel(move.direction) }}
                     </em>
                   </td>
                   <td>
@@ -240,7 +243,10 @@
                       {{ move.club || '—' }}
                     </span>
                   </td>
-                  <td class="num">{{ move.price != null ? (move.price | number: '1.1-1') : '—' }}</td>
+                  <td class="num">{{ move.price != null ? (move.price | number: priceFormat()) : '—' }}</td>
+                  @if (showTransferCounterpart()) {
+                    <td>{{ move.counterpart || '—' }}</td>
+                  }
                 </tr>
               }
             </tbody>

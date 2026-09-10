@@ -43,6 +43,6 @@ public class SquadPick {
 	@Column(name = "is_vice_captain", nullable = false)
 	private boolean viceCaptain;
 
-	@Column(precision = 6, scale = 1)
+	@Column(precision = 12, scale = 6)
 	private BigDecimal price;
 }

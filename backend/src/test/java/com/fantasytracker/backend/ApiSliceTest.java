@@ -306,6 +306,93 @@ class ApiSliceTest {
 				.andExpect(jsonPath("$.transfers[1].price").value(6.5));
 	}
 
+	@Test
+	void officialLaLigaTransfersCanBeUnpairedBuysAndSells() throws Exception {
+		String snapshot = """
+				{
+				  "competition": {
+				    "source": "laliga-fantasy",
+				    "externalId": "oficial",
+				    "name": "LaLiga Fantasy",
+				    "season": "2026/27",
+				    "slug": "laliga-fantasy-oficial"
+				  },
+				  "gameweek": { "number": 2, "name": "GW2", "status": "finished" },
+				  "team": { "name": "Los Oficiales", "managerName": "Locksat" },
+				  "picks": [
+				    {
+				      "player": { "externalId": "823944", "name": "Kylian Mbappé", "position": "FWD", "club": "Real Madrid", "clubExternalId": "2829" },
+				      "role": "starter",
+				      "captain": false,
+				      "viceCaptain": false,
+				      "points": 10,
+				      "price": 20
+				    },
+				    {
+				      "player": { "externalId": "pedri-barcelona", "name": "Pedri", "position": "MID", "club": "Barcelona" },
+				      "role": "squad",
+				      "captain": false,
+				      "viceCaptain": false,
+				      "points": 0,
+				      "price": 12
+				    }
+				  ],
+				  "teamPoints": 64
+				}
+				""";
+		String created = mockMvc.perform(post("/api/v1/ingest/snapshots")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(snapshot))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		int competitionId = new com.fasterxml.jackson.databind.ObjectMapper().readTree(created).get("competitionId").asInt();
+
+		String deals = """
+				{
+				  "competition": {
+				    "source": "laliga-fantasy",
+				    "externalId": "oficial",
+				    "name": "LaLiga Fantasy",
+				    "season": "2026/27",
+				    "slug": "laliga-fantasy-oficial"
+				  },
+				  "team": { "name": "Los Oficiales", "managerName": "Locksat" },
+				  "rounds": [
+				    {
+				      "number": 2,
+				      "name": "GW2",
+				      "transfers": [
+				        {
+				          "playerIn": { "externalId": "1399376", "name": "Lamine Yamal", "position": "FWD", "club": "Barcelona", "clubExternalId": "2817" },
+				          "priceIn": 18.0,
+				          "counterpart": "Market"
+				        },
+				        {
+				          "playerOut": { "externalId": "joselu-real-madrid", "name": "Joselu", "position": "FWD", "club": "Real Madrid", "clubExternalId": "2829" },
+				          "priceOut": 9.0,
+				          "counterpart": "Otro Manager FC"
+				        }
+				      ]
+				    }
+				  ]
+				}
+				""";
+		mockMvc.perform(post("/api/v1/ingest/transfers")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(deals))
+				.andExpect(status().isCreated());
+		mockMvc.perform(get("/api/v1/competitions/" + competitionId + "/team").param("gameweek", "2"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.picks[?(@.role=='squad')].name").value(org.hamcrest.Matchers.hasItem("Pedri")))
+				.andExpect(jsonPath("$.transfers.length()").value(2))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='in')].name").value(org.hamcrest.Matchers.hasItem("Lamine Yamal")))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='in')].counterpart").value(org.hamcrest.Matchers.hasItem("Market")))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='out')].name").value(org.hamcrest.Matchers.hasItem("Joselu")))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='out')].counterpart").value(org.hamcrest.Matchers.hasItem("Otro Manager FC")));
+	}
+
 	private void ingest(String classpath) throws Exception {
 		String body = new String(new ClassPathResource(classpath).getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 		mockMvc.perform(post("/api/v1/ingest/snapshots")

@@ -51,7 +51,7 @@ python -m collector pull
 
 Weekly Windows task (Monday 21:00): `powershell -ExecutionPolicy Bypass -File collector\register-weekly-task.ps1`
 
-The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull` fetches every competition that has URLs in `.env` (Premier League, LaLiga, Serie A, Ligue 1, Bundesliga, Champions League, Europa League, MLS, Brasileirão). HTTP 401 means refresh `SOFASCORE_SESSION`. Official LaLiga Fantasy is app-only: fill `collector/templates/laliga-fantasy-oficial.xlsx` and run `python -m collector import-excel`.
+The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull` fetches every competition that has URLs in `.env` (Premier League, LaLiga, Serie A, Ligue 1, Bundesliga, Champions League, Europa League, MLS, Brasileirão). HTTP 401 means refresh `SOFASCORE_SESSION`. Official LaLiga Fantasy is app-only (100M€ market, starting XI + squad, independent buys/sells, no captains): fill `collector/templates/laliga-fantasy-oficial.xlsx` and run `python -m collector import-excel`.
 
 ## Scoring and media
 

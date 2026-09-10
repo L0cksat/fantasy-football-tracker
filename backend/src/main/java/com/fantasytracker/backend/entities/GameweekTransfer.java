@@ -33,17 +33,20 @@ public class GameweekTransfer {
 	@Column(name = "sort_order", nullable = false)
 	private int sortOrder;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "player_in_id", nullable = false)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "player_in_id")
 	private Player playerIn;
 
-	@ManyToOne(fetch = FetchType.LAZY, optional = false)
-	@JoinColumn(name = "player_out_id", nullable = false)
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "player_out_id")
 	private Player playerOut;
 
-	@Column(name = "price_in", precision = 6, scale = 1)
+	@Column(name = "price_in", precision = 12, scale = 6)
 	private BigDecimal priceIn;
 
-	@Column(name = "price_out", precision = 6, scale = 1)
+	@Column(name = "price_out", precision = 12, scale = 6)
 	private BigDecimal priceOut;
+
+	@Column(name = "counterpart", length = 120)
+	private String counterpart;
 }

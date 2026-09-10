@@ -28,14 +28,10 @@ _SQUADS_HEADERS = (
     "gameweekName",
     "status",
     "teamPoints",
-    "tripleCaptain",
-    "transferPenalty",
     "playerName",
     "position",
     "club",
     "role",
-    "captain",
-    "viceCaptain",
     "points",
     "rating",
     "price",
@@ -46,19 +42,14 @@ _SQUADS_HEADERS = (
 _TRANSFERS_HEADERS = (
     "gameweek",
     "gameweekName",
-    "playerIn",
-    "clubIn",
-    "positionIn",
-    "priceIn",
-    "sofaScorePlayerIdIn",
-    "sofaScoreClubIdIn",
-    "playerOut",
-    "clubOut",
-    "positionOut",
-    "priceOut",
-    "sofaScorePlayerIdOut",
-    "sofaScoreClubIdOut",
-    "transferPenalty",
+    "action",
+    "playerName",
+    "club",
+    "position",
+    "price",
+    "counterpart",
+    "sofaScorePlayerId",
+    "sofaScoreClubId",
 )
 
 
@@ -85,7 +76,11 @@ def load_workbook_payloads(
 def _competition_and_team(workbook: Any) -> tuple[dict[str, Any], dict[str, Any]]:
     sheet = workbook["Competition"]
     values = _key_values(sheet)
-    team_name = _required(values.get("teamName"), "Competition.teamName")
+    team_name = (values.get("teamName") or "").strip() or (values.get("managerName") or "").strip()
+    if not team_name:
+        raise ValueError(
+            "Competition.teamName is required, or set managerName if the official app has no team name."
+        )
     season = values.get("season") or DEFAULT_SEASON
     name = values.get("competitionName") or DEFAULT_NAME
     return (
@@ -134,8 +129,8 @@ def _snapshots_from_squads(
                 team=team,
                 picks=picks,
                 teamPoints=_optional_float(first.get("teamPoints")),
-                tripleCaptain=_bool(first.get("tripleCaptain")),
-                transferPenalty=_optional_float(first.get("transferPenalty")),
+                tripleCaptain=False,
+                transferPenalty=None,
             )
         )
     return snapshots
@@ -152,9 +147,8 @@ def _transfers_from_sheet(
     rows = _table_rows(workbook["Transfers"], _TRANSFERS_HEADERS)
     grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        incoming = str(row.get("playerIn") or "").strip()
-        outgoing = str(row.get("playerOut") or "").strip()
-        if not incoming or not outgoing or incoming.upper().startswith("EXAMPLE"):
+        name = str(row.get("playerName") or "").strip()
+        if not name or name.upper().startswith("EXAMPLE"):
             continue
         number = _int(row.get("gameweek"), "Transfers.gameweek")
         if gameweek is not None and number != gameweek:
@@ -165,32 +159,12 @@ def _transfers_from_sheet(
     rounds: list[TransferRound] = []
     for number, items in sorted(grouped.items()):
         first = items[0]
-        pairs = [
-            TransferPair(
-                playerIn=_transfer_player(
-                    item.get("playerIn"),
-                    item.get("clubIn"),
-                    item.get("positionIn"),
-                    item.get("priceIn"),
-                    item.get("sofaScorePlayerIdIn"),
-                    item.get("sofaScoreClubIdIn"),
-                ),
-                playerOut=_transfer_player(
-                    item.get("playerOut"),
-                    item.get("clubOut"),
-                    item.get("positionOut"),
-                    item.get("priceOut"),
-                    item.get("sofaScorePlayerIdOut"),
-                    item.get("sofaScoreClubIdOut"),
-                ),
-            )
-            for item in items
-        ]
+        pairs = [_deal_from_row(item) for item in items]
         rounds.append(
             TransferRound(
                 number=number,
                 name=str(first.get("gameweekName") or f"GW{number}"),
-                transferPenalty=_optional_float(first.get("transferPenalty")) or 0,
+                transferPenalty=0,
                 transfers=pairs,
             )
         )
@@ -211,11 +185,27 @@ def _pick_from_row(row: dict[str, Any]) -> PickPayload:
         ),
         role=_role(row.get("role")),
         points=_optional_float(row.get("points")) or 0,
-        captain=_bool(row.get("captain")),
-        viceCaptain=_bool(row.get("viceCaptain")),
+        captain=False,
+        viceCaptain=False,
         rating=_optional_float(row.get("rating")),
         price=_optional_float(row.get("price")),
     )
+
+
+def _deal_from_row(row: dict[str, Any]) -> TransferPair:
+    player = _transfer_player(
+        row.get("playerName"),
+        row.get("club"),
+        row.get("position"),
+        row.get("price"),
+        row.get("sofaScorePlayerId"),
+        row.get("sofaScoreClubId"),
+    )
+    counterpart = _optional_text(row.get("counterpart")) or "Market"
+    action = _action(row.get("action"))
+    if action == "sold":
+        return TransferPair(playerOut=player, counterpart=counterpart)
+    return TransferPair(playerIn=player, counterpart=counterpart)
 
 
 def _transfer_player(
@@ -311,13 +301,6 @@ def _optional_text(value: Any) -> str | None:
     return text or None
 
 
-def _bool(value: Any) -> bool:
-    if value is True or value == 1:
-        return True
-    text = str(value or "").strip().lower()
-    return text in {"true", "yes", "y", "1", "si", "sí"}
-
-
 def _position(value: Any) -> str | None:
     text = str(value or "").strip().upper()
     if not text:
@@ -326,14 +309,17 @@ def _position(value: Any) -> str | None:
     return aliases.get(text, text)
 
 
+def _action(value: Any) -> str:
+    text = str(value or "bought").strip().lower()
+    if text in {"sold", "sell", "out", "sale"}:
+        return "sold"
+    if text in {"bought", "buy", "in", "purchase", "purchased"}:
+        return "bought"
+    raise ValueError(f"Transfers.action must be Bought or Sold, not {value!r}")
+
+
 def _role(value: Any) -> str:
     text = str(value or "starter").strip().lower()
-    if text in {"bench", "sub", "substitute"}:
-        return "bench"
+    if text in {"squad", "bench", "sub", "substitute", "reserve"}:
+        return "squad"
     return "starter"
-
-
-def _required(value: str | None, field: str) -> str:
-    if not value:
-        raise ValueError(f"{field} is required")
-    return value
