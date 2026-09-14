@@ -41,6 +41,32 @@ export interface TeamView {
   transferPenalty: number;
   picks: PickView[];
   transfers: TransferView[];
+  transferMarket: TransferMarketSummary | null;
+}
+
+export interface TransferMarketSummary {
+  week: TransferMarketScope;
+  season: TransferMarketScope;
+}
+
+export interface TransferMarketScope {
+  soldToMarket: DealGroup;
+  soldReleaseClause: DealGroup;
+  boughtFromMarket: DealGroup;
+  boughtReleaseClause: DealGroup;
+  soldTo: CounterpartGroup[];
+  boughtFrom: CounterpartGroup[];
+}
+
+export interface DealGroup {
+  count: number;
+  total: number;
+}
+
+export interface CounterpartGroup {
+  name: string;
+  count: number;
+  total: number;
 }
 
 export interface TransferView {
@@ -54,6 +80,7 @@ export interface TransferView {
   clubCrestUrl: string | null;
   price: number | null;
   counterpart: string | null;
+  channel: 'market' | 'release-clause' | null;
 }
 
 export interface PickView {
@@ -72,6 +99,7 @@ export interface PickView {
   points: number;
   rating: number | null;
   breakdown: string | null;
+  injured: boolean;
 }
 
 export interface CompareView {

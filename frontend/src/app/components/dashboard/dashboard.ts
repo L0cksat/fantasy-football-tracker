@@ -70,6 +70,34 @@ export class DashboardComponent {
     return this.isOfficialLaLiga() ? '1.1-6' : '1.1-1';
   }
 
+  counterpartLabel(move: { counterpart: string | null; channel: string | null }): string {
+    if (!this.isOfficialLaLiga()) {
+      return move.counterpart || '—';
+    }
+    if (move.channel === 'release-clause' && move.counterpart) {
+      return `Release clause paid · ${move.counterpart}`;
+    }
+    return move.counterpart || 'Market';
+  }
+
+  hasMarketDeals(scope: {
+    soldToMarket: { count: number };
+    soldReleaseClause: { count: number };
+    boughtFromMarket: { count: number };
+    boughtReleaseClause: { count: number };
+  } | null | undefined): boolean {
+    if (!scope) {
+      return false;
+    }
+    return (
+      scope.soldToMarket.count +
+        scope.soldReleaseClause.count +
+        scope.boughtFromMarket.count +
+        scope.boughtReleaseClause.count >
+      0
+    );
+  }
+
   constructor() {
     this.competitionService.getCompetitions().subscribe({
       next: (competitions) => {

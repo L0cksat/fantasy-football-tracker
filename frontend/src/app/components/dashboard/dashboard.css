@@ -314,6 +314,54 @@ th {
   border: 1px solid #f0a0a0;
 }
 
+.chip-injured {
+  background: transparent;
+  color: #f0c36a;
+  border: 1px solid #f0c36a;
+}
+
+.market-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.market-cards article {
+  padding: 0.85rem 1rem;
+  background: var(--ft-raised);
+  border: 1px solid var(--ft-border);
+  border-radius: 12px;
+}
+
+.market-cards span {
+  display: block;
+  color: var(--ft-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.market-cards strong {
+  display: block;
+  font-size: 1.35rem;
+}
+
+.market-cards em {
+  display: block;
+  margin-top: 0.15rem;
+  font-style: normal;
+  color: var(--ft-lime);
+}
+
+.panel h4 {
+  margin: 0.4rem 0 0.65rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ft-muted);
+}
+
 .compare-sum {
   margin: 0 0 0.8rem;
 }

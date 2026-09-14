@@ -104,7 +104,7 @@ def _snapshots_from_squads(
     team: dict[str, Any],
     gameweek: int | None,
 ) -> list[Snapshot]:
-    rows = _table_rows(workbook["Squads"], _SQUADS_HEADERS)
+    rows = _table_rows(workbook["Squads"], _SQUADS_HEADERS, optional=("injured",))
     grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         name = str(row.get("playerName") or "").strip()
@@ -189,6 +189,7 @@ def _pick_from_row(row: dict[str, Any]) -> PickPayload:
         viceCaptain=False,
         rating=_optional_float(row.get("rating")),
         price=_optional_float(row.get("price")),
+        injured=_injured(row.get("injured")),
     )
 
 
@@ -240,7 +241,11 @@ def _key_values(sheet: Any) -> dict[str, str]:
     return values
 
 
-def _table_rows(sheet: Any, headers: tuple[str, ...]) -> list[dict[str, Any]]:
+def _table_rows(
+    sheet: Any,
+    headers: tuple[str, ...],
+    optional: tuple[str, ...] = (),
+) -> list[dict[str, Any]]:
     rows = list(sheet.iter_rows(min_row=1, values_only=True))
     if not rows:
         return []
@@ -248,10 +253,11 @@ def _table_rows(sheet: Any, headers: tuple[str, ...]) -> list[dict[str, Any]]:
     missing = [name for name in headers if name not in found]
     if missing:
         raise ValueError(f"{sheet.title} is missing columns: {', '.join(missing)}")
-    index = {name: found.index(name) for name in headers}
+    wanted = list(headers) + [name for name in optional if name in found]
+    index = {name: found.index(name) for name in wanted}
     payload: list[dict[str, Any]] = []
     for raw in rows[1:]:
-        item = {name: raw[index[name]] if index[name] < len(raw) else None for name in headers}
+        item = {name: raw[index[name]] if index[name] < len(raw) else None for name in wanted}
         payload.append(item)
     return payload
 
@@ -316,6 +322,11 @@ def _action(value: Any) -> str:
     if text in {"bought", "buy", "in", "purchase", "purchased"}:
         return "bought"
     raise ValueError(f"Transfers.action must be Bought or Sold, not {value!r}")
+
+
+def _injured(value: Any) -> bool:
+    text = str(value or "").strip().lower()
+    return text in {"injured", "yes", "true", "1", "y"}
 
 
 def _role(value: Any) -> str:

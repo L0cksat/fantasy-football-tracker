@@ -10,5 +10,7 @@ public interface GameweekTransferRepository extends JpaRepository<GameweekTransf
 
 	List<GameweekTransfer> findByFantasyTeam_IdAndGameweek_IdOrderBySortOrderAsc(Long fantasyTeamId, Long gameweekId);
 
+	List<GameweekTransfer> findByFantasyTeam_IdOrderByGameweek_NumberAscSortOrderAsc(Long fantasyTeamId);
+
 	void deleteByFantasyTeam_IdAndGameweek_Id(Long fantasyTeamId, Long gameweekId);
 }

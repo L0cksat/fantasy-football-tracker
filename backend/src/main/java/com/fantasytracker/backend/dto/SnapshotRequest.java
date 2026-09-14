@@ -56,6 +56,7 @@ public record SnapshotRequest(
 			@NotNull BigDecimal points,
 			BigDecimal rating,
 			BigDecimal price,
-			Map<String, Object> breakdown) {
+			Map<String, Object> breakdown,
+			boolean injured) {
 	}
 }

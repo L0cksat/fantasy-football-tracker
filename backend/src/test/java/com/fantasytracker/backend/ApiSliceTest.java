@@ -334,7 +334,8 @@ class ApiSliceTest {
 				      "captain": false,
 				      "viceCaptain": false,
 				      "points": 0,
-				      "price": 12
+				      "price": 12,
+				      "injured": true
 				    }
 				  ],
 				  "teamPoints": 64
@@ -386,11 +387,22 @@ class ApiSliceTest {
 		mockMvc.perform(get("/api/v1/competitions/" + competitionId + "/team").param("gameweek", "2"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.picks[?(@.role=='squad')].name").value(org.hamcrest.Matchers.hasItem("Pedri")))
+				.andExpect(jsonPath("$.picks[?(@.name=='Pedri')].injured").value(org.hamcrest.Matchers.hasItem(true)))
 				.andExpect(jsonPath("$.transfers.length()").value(2))
 				.andExpect(jsonPath("$.transfers[?(@.direction=='in')].name").value(org.hamcrest.Matchers.hasItem("Lamine Yamal")))
 				.andExpect(jsonPath("$.transfers[?(@.direction=='in')].counterpart").value(org.hamcrest.Matchers.hasItem("Market")))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='in')].channel").value(org.hamcrest.Matchers.hasItem("market")))
 				.andExpect(jsonPath("$.transfers[?(@.direction=='out')].name").value(org.hamcrest.Matchers.hasItem("Joselu")))
-				.andExpect(jsonPath("$.transfers[?(@.direction=='out')].counterpart").value(org.hamcrest.Matchers.hasItem("Otro Manager FC")));
+				.andExpect(jsonPath("$.transfers[?(@.direction=='out')].counterpart").value(org.hamcrest.Matchers.hasItem("Otro Manager FC")))
+				.andExpect(jsonPath("$.transfers[?(@.direction=='out')].channel").value(org.hamcrest.Matchers.hasItem("release-clause")))
+				.andExpect(jsonPath("$.transferMarket.week.soldToMarket.count").value(0))
+				.andExpect(jsonPath("$.transferMarket.week.soldReleaseClause.count").value(1))
+				.andExpect(jsonPath("$.transferMarket.week.soldReleaseClause.total").value(9.0))
+				.andExpect(jsonPath("$.transferMarket.week.boughtFromMarket.count").value(1))
+				.andExpect(jsonPath("$.transferMarket.week.boughtFromMarket.total").value(18.0))
+				.andExpect(jsonPath("$.transferMarket.week.boughtReleaseClause.count").value(0))
+				.andExpect(jsonPath("$.transferMarket.week.soldTo[0].name").value("Otro Manager FC"))
+				.andExpect(jsonPath("$.transferMarket.week.soldTo[0].total").value(9.0));
 	}
 
 	private void ingest(String classpath) throws Exception {

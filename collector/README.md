@@ -22,7 +22,7 @@ python -m collector import-excel templates\laliga-fantasy-oficial.xlsx --dry-run
 python -m collector import-excel path\to\your-copy.xlsx
 ```
 
-Official LaLiga Fantasy has no website JSON. Copy `collector/templates/laliga-fantasy-oficial.xlsx`, fill **Competition**, **Squads** (starter = Team XI, squad = owned but not in XI), and **Transfers** (one Bought or Sold row per deal, with price and Market or manager name). Delete the yellow EXAMPLE rows, then `import-excel`. No captains or bench. That is a separate dashboard competition from SofaScore LaLiga.
+Official LaLiga Fantasy has no website JSON. Copy `collector/templates/laliga-fantasy-oficial.xlsx`, fill **Competition**, **Squads** (starter = Team XI, squad = owned but not in XI), and **Transfers** (one Bought or Sold row per deal, with price and Market or manager name). Set **channel** to Market or Release clause paid. Mark **injured** on Squads when a player is out. Delete the yellow EXAMPLE rows, then `import-excel`. No captains or bench. That is a separate dashboard competition from SofaScore LaLiga.
 
 ## `.env` for `pull`
 

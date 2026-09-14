@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS squad_pick (
   is_captain TINYINT(1) NOT NULL DEFAULT 0,
   is_vice_captain TINYINT(1) NOT NULL DEFAULT 0,
   price DECIMAL(12,6) NULL,
+  injured TINYINT(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   UNIQUE KEY uk_pick (fantasy_team_id, player_id, gameweek_id),
   CONSTRAINT fk_pick_team FOREIGN KEY (fantasy_team_id) REFERENCES fantasy_team (id),

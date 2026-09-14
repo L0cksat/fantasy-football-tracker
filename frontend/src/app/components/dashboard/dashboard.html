@@ -126,6 +126,9 @@
                     }
                     <span>
                       {{ pick.name }}
+                      @if (pick.injured) {
+                        <em class="chip chip-injured">Injured</em>
+                      }
                       @if (!isOfficialLaLiga() && pick.captain && team.tripleCaptain) {
                         <em class="chip">TC ×3</em>
                       } @else if (!isOfficialLaLiga() && pick.captain) {
@@ -175,6 +178,9 @@
                     }
                     <span>
                       {{ pick.name }}
+                      @if (pick.injured) {
+                        <em class="chip chip-injured">Injured</em>
+                      }
                       @if (!isOfficialLaLiga() && pick.captain && team.tripleCaptain) {
                         <em class="chip">TC ×3</em>
                       } @else if (!isOfficialLaLiga() && pick.captain) {
@@ -245,13 +251,161 @@
                   </td>
                   <td class="num">{{ move.price != null ? (move.price | number: priceFormat()) : '—' }}</td>
                   @if (showTransferCounterpart()) {
-                    <td>{{ move.counterpart || '—' }}</td>
+                    <td>{{ counterpartLabel(move) }}</td>
                   }
                 </tr>
               }
             </tbody>
           </table>
         </div>
+      }
+
+      @if (isOfficialLaLiga() && team.transferMarket; as market) {
+        @if (hasMarketDeals(market.week) || hasMarketDeals(market.season)) {
+          <h3>Market &amp; release clauses</h3>
+          @if (hasMarketDeals(market.week)) {
+            <h4>This gameweek</h4>
+            <div class="market-cards">
+              <article>
+                <span>Sold to Market</span>
+                <strong>{{ market.week.soldToMarket.count }}</strong>
+                <em>{{ market.week.soldToMarket.total | number: priceFormat() }}M€</em>
+              </article>
+              <article>
+                <span>Release clause paid by other managers</span>
+                <strong>{{ market.week.soldReleaseClause.count }}</strong>
+                <em>{{ market.week.soldReleaseClause.total | number: priceFormat() }}M€</em>
+              </article>
+              <article>
+                <span>Bought from Market</span>
+                <strong>{{ market.week.boughtFromMarket.count }}</strong>
+                <em>{{ market.week.boughtFromMarket.total | number: priceFormat() }}M€</em>
+              </article>
+              <article>
+                <span>Release clauses paid</span>
+                <strong>{{ market.week.boughtReleaseClause.count }}</strong>
+                <em>{{ market.week.boughtReleaseClause.total | number: priceFormat() }}M€</em>
+              </article>
+            </div>
+            @if (market.week.soldTo.length) {
+              <p class="muted">Managers who paid your release clause</p>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Manager</th>
+                      <th class="num">Deals</th>
+                      <th class="num">Received</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of market.week.soldTo; track row.name) {
+                      <tr>
+                        <td>{{ row.name }}</td>
+                        <td class="num">{{ row.count }}</td>
+                        <td class="num">{{ row.total | number: priceFormat() }}M€</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+            @if (market.week.boughtFrom.length) {
+              <p class="muted">Release clauses you paid</p>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Manager</th>
+                      <th class="num">Deals</th>
+                      <th class="num">Spent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of market.week.boughtFrom; track row.name) {
+                      <tr>
+                        <td>{{ row.name }}</td>
+                        <td class="num">{{ row.count }}</td>
+                        <td class="num">{{ row.total | number: priceFormat() }}M€</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+          @if (hasMarketDeals(market.season)) {
+            <h4>Season</h4>
+            <div class="market-cards">
+              <article>
+                <span>Sold to Market</span>
+                <strong>{{ market.season.soldToMarket.count }}</strong>
+                <em>{{ market.season.soldToMarket.total | number: priceFormat() }}M€</em>
+              </article>
+              <article>
+                <span>Release clause paid by other managers</span>
+                <strong>{{ market.season.soldReleaseClause.count }}</strong>
+                <em>{{ market.season.soldReleaseClause.total | number: priceFormat() }}M€</em>
+              </article>
+              <article>
+                <span>Bought from Market</span>
+                <strong>{{ market.season.boughtFromMarket.count }}</strong>
+                <em>{{ market.season.boughtFromMarket.total | number: priceFormat() }}M€</em>
+              </article>
+              <article>
+                <span>Release clauses paid</span>
+                <strong>{{ market.season.boughtReleaseClause.count }}</strong>
+                <em>{{ market.season.boughtReleaseClause.total | number: priceFormat() }}M€</em>
+              </article>
+            </div>
+            @if (market.season.soldTo.length) {
+              <p class="muted">Managers who paid your release clause</p>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Manager</th>
+                      <th class="num">Deals</th>
+                      <th class="num">Received</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of market.season.soldTo; track row.name) {
+                      <tr>
+                        <td>{{ row.name }}</td>
+                        <td class="num">{{ row.count }}</td>
+                        <td class="num">{{ row.total | number: priceFormat() }}M€</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+            @if (market.season.boughtFrom.length) {
+              <p class="muted">Release clauses you played</p>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Manager</th>
+                      <th class="num">Deals</th>
+                      <th class="num">Spent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of market.season.boughtFrom; track row.name) {
+                      <tr>
+                        <td>{{ row.name }}</td>
+                        <td class="num">{{ row.count }}</td>
+                        <td class="num">{{ row.total | number: priceFormat() }}M€</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+        }
       }
     </section>
   }

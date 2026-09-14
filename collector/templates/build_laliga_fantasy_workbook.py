@@ -26,13 +26,13 @@ HEADER = "2F4A89"
 WHITE = "FFFFFF"
 
 SQUAD_EXAMPLE = [
-    [1, "GW1", "finished", 64, "EXAMPLE — starter from Team tab", "FWD", "Real Madrid", "starter", 12, 7.4, 15.0, "", ""],
-    [1, "GW1", "finished", 64, "EXAMPLE — owned, not in XI (Squad tab)", "MID", "Barcelona", "squad", "", "", 8.0, "", ""],
+    [1, "GW1", "finished", 64, "EXAMPLE — starter from Team tab", "FWD", "Real Madrid", "starter", "", 12, 7.4, 15.0, "", ""],
+    [1, "GW1", "finished", 64, "EXAMPLE — owned, not in XI (Squad tab)", "MID", "Barcelona", "squad", "injured", "", "", 8.0, "", ""],
 ]
 
 TRANSFER_EXAMPLE = [
-    [2, "GW2", "Bought", "EXAMPLE — player bought", "Real Madrid", "FWD", 15.0, "Market", "", ""],
-    [2, "GW2", "Sold", "EXAMPLE — player sold", "Barcelona", "MID", 8.0, "Market", "", ""],
+    [2, "GW2", "Bought", "EXAMPLE — player bought", "Real Madrid", "FWD", 15.0, "Market", "Market", "", ""],
+    [2, "GW2", "Sold", "EXAMPLE — player sold", "Barcelona", "MID", 8.0, "Otro Manager FC", "Release clause paid", "", ""],
 ]
 
 
@@ -64,8 +64,10 @@ def _readme(sheet: Worksheet) -> None:
         "1. Competition — manager name is enough if the official app has no team name (dashboard will use Locksat).",
         "2. Squads — every player you own that week. Role starter = Team tab XI. Role squad = Squad tab, not in the XI.",
         "   Repeat teamPoints on each row of that week. teamPoints is the app’s week total for the starting XI.",
+        "   injured: leave blank, or injured if they missed the week / picked up an injury after playing.",
         "3. Transfers — one row per deal. Bought or Sold, with price and who you traded with (Market or a manager name).",
         "   Buys and sells are independent. You do not need an in/out pair on the same row.",
+        "   channel: Market, or Release clause paid when the other party is a manager (keep counterpart as their name).",
         "4. Clubs — SofaScore club IDs for crests. Copy sofaScoreClubId onto Squads/Transfers if you want crests now.",
         "",
         "Rules",
@@ -107,7 +109,7 @@ def _competition(sheet: Worksheet) -> None:
         "teamName": "Optional if managerName is set. Official app has no club name; leave blank to use the manager.",
         "managerName": "Optional.",
         "season": "Use 2026/27 unless you start a later season.",
-        "competitionName": "Shown in the dashboard dropdown.",
+        "competitionName": "Shown in the dashboard dropdown. Official private league: El Desafío al Campeón.",
         "startingBudget": "App bank at the start of the season, in millions of euros. Not imported.",
     }
     for index, (field, value) in enumerate(fields, start=2):
@@ -124,40 +126,46 @@ def _competition(sheet: Worksheet) -> None:
 
 def _squads(sheet: Worksheet) -> None:
     sheet.sheet_properties.tabColor = GOLD
-    sheet.append(list(_SQUADS_HEADERS))
-    _header_row(sheet, 1, len(_SQUADS_HEADERS))
+    headers = list(_SQUADS_HEADERS)
+    headers.insert(headers.index("role") + 1, "injured")
+    sheet.append(headers)
+    _header_row(sheet, 1, len(headers))
     for row in SQUAD_EXAMPLE:
         sheet.append(row)
     for index in range(2, 2 + len(SQUAD_EXAMPLE)):
-        _fill_row(sheet, index, len(_SQUADS_HEADERS), EXAMPLE)
+        _fill_row(sheet, index, len(headers), EXAMPLE)
     for _ in range(40):
-        sheet.append([None] * len(_SQUADS_HEADERS))
-    widths = [12, 14, 12, 13, 36, 12, 22, 12, 10, 10, 10, 20, 18]
+        sheet.append([None] * len(headers))
+    widths = [12, 14, 12, 13, 36, 12, 22, 12, 12, 10, 10, 10, 20, 18]
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[get_column_letter(index)].width = width
     sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = f"A1:{get_column_letter(len(_SQUADS_HEADERS))}200"
+    sheet.auto_filter.ref = f"A1:{get_column_letter(len(headers))}200"
     _list(sheet, "C2:C200", "finished,live,upcoming")
     _list(sheet, "F2:F200", "GK,DEF,MID,FWD")
     _list(sheet, "H2:H200", "starter,squad")
+    _list(sheet, "I2:I200", "injured")
 
 
 def _transfers(sheet: Worksheet) -> None:
     sheet.sheet_properties.tabColor = "8A8A8A"
-    sheet.append(list(_TRANSFERS_HEADERS))
-    _header_row(sheet, 1, len(_TRANSFERS_HEADERS))
+    headers = list(_TRANSFERS_HEADERS)
+    headers.insert(headers.index("counterpart") + 1, "channel")
+    sheet.append(headers)
+    _header_row(sheet, 1, len(headers))
     for row in TRANSFER_EXAMPLE:
         sheet.append(row)
-    _fill_row(sheet, 2, len(_TRANSFERS_HEADERS), EXAMPLE)
-    _fill_row(sheet, 3, len(_TRANSFERS_HEADERS), EXAMPLE)
+    _fill_row(sheet, 2, len(headers), EXAMPLE)
+    _fill_row(sheet, 3, len(headers), EXAMPLE)
     for _ in range(15):
-        sheet.append([None] * len(_TRANSFERS_HEADERS))
-    widths = [12, 14, 12, 28, 22, 12, 12, 22, 20, 18]
+        sheet.append([None] * len(headers))
+    widths = [12, 14, 12, 28, 22, 12, 12, 22, 22, 20, 18]
     for index, width in enumerate(widths, start=1):
         sheet.column_dimensions[get_column_letter(index)].width = width
     sheet.freeze_panes = "A2"
     _list(sheet, "C2:C200", "Bought,Sold")
     _list(sheet, "F2:F200", "GK,DEF,MID,FWD")
+    _list(sheet, "I2:I200", "Market,Release clause paid")
 
 
 def _clubs(sheet: Worksheet) -> None:

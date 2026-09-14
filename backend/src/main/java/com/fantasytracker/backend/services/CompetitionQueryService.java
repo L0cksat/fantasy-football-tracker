@@ -223,7 +223,8 @@ public class CompetitionQueryService {
 							base,
 							CaptainScoring.effective(base, pick.isCaptain(), tripleCaptain),
 							score != null ? score.getRating() : null,
-							score != null ? score.getBreakdown() : null);
+							score != null ? score.getBreakdown() : null,
+							pick.isInjured());
 				})
 				.toList();
 		BigDecimal teamPoints = teamScore != null ? teamScore.getPoints() : BigDecimal.ZERO;
@@ -247,7 +248,8 @@ public class CompetitionQueryService {
 				tripleCaptain,
 				transferPenalty,
 				pickViews,
-				buildTransfers(competition, team, gameweek));
+				buildTransfers(competition, team, gameweek),
+				buildTransferMarket(team, gameweek));
 	}
 
 	private List<TeamViewResponse.TransferView> buildTransfers(
@@ -334,7 +336,79 @@ public class CompetitionQueryService {
 				player.getClub(),
 				ClubCrests.url(source, player.getClubExternalId(), player.getClub()),
 				price,
-				counterpart);
+				counterpart,
+				TransferChannels.channel(counterpart));
+	}
+
+	private TeamViewResponse.TransferMarketSummary buildTransferMarket(FantasyTeam team, Gameweek gameweek) {
+		List<GameweekTransfer> all = transferRepository
+				.findByFantasyTeam_IdOrderByGameweek_NumberAscSortOrderAsc(team.getId());
+		List<GameweekTransfer> week = all.stream()
+				.filter(row -> row.getGameweek().getId().equals(gameweek.getId()))
+				.toList();
+		return new TeamViewResponse.TransferMarketSummary(summarizeMarket(week), summarizeMarket(all));
+	}
+
+	private TeamViewResponse.TransferMarketScope summarizeMarket(List<GameweekTransfer> rows) {
+		Accumulator soldMarket = new Accumulator();
+		Accumulator soldClause = new Accumulator();
+		Accumulator boughtMarket = new Accumulator();
+		Accumulator boughtClause = new Accumulator();
+		Map<String, Accumulator> soldTo = new HashMap<>();
+		Map<String, Accumulator> boughtFrom = new HashMap<>();
+		for (GameweekTransfer row : rows) {
+			if (row.getPlayerOut() != null) {
+				boolean market = TransferChannels.isMarket(row.getCounterpart());
+				(market ? soldMarket : soldClause).add(row.getPriceOut());
+				if (!market) {
+					soldTo.computeIfAbsent(row.getCounterpart().strip(), key -> new Accumulator())
+							.add(row.getPriceOut());
+				}
+			}
+			if (row.getPlayerIn() != null) {
+				boolean market = TransferChannels.isMarket(row.getCounterpart());
+				(market ? boughtMarket : boughtClause).add(row.getPriceIn());
+				if (!market) {
+					boughtFrom.computeIfAbsent(row.getCounterpart().strip(), key -> new Accumulator())
+							.add(row.getPriceIn());
+				}
+			}
+		}
+		return new TeamViewResponse.TransferMarketScope(
+				soldMarket.toGroup(),
+				soldClause.toGroup(),
+				boughtMarket.toGroup(),
+				boughtClause.toGroup(),
+				toCounterpartGroups(soldTo),
+				toCounterpartGroups(boughtFrom));
+	}
+
+	private List<TeamViewResponse.CounterpartGroup> toCounterpartGroups(Map<String, Accumulator> grouped) {
+		List<TeamViewResponse.CounterpartGroup> groups = new ArrayList<>();
+		for (Map.Entry<String, Accumulator> item : grouped.entrySet()) {
+			groups.add(new TeamViewResponse.CounterpartGroup(
+					item.getKey(), item.getValue().count, item.getValue().total));
+		}
+		groups.sort(Comparator
+				.comparing((TeamViewResponse.CounterpartGroup group) -> group.total(), Comparator.reverseOrder())
+				.thenComparing(TeamViewResponse.CounterpartGroup::name, String.CASE_INSENSITIVE_ORDER));
+		return groups;
+	}
+
+	private static final class Accumulator {
+		private int count;
+		private BigDecimal total = BigDecimal.ZERO;
+
+		private void add(BigDecimal amount) {
+			count++;
+			if (amount != null) {
+				total = total.add(amount);
+			}
+		}
+
+		private TeamViewResponse.DealGroup toGroup() {
+			return new TeamViewResponse.DealGroup(count, total);
+		}
 	}
 
 	private boolean tripleCaptain(Long teamId, Long gameweekId) {

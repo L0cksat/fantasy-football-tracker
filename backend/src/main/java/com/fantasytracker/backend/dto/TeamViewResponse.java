@@ -12,7 +12,8 @@ public record TeamViewResponse(
 		boolean tripleCaptain,
 		BigDecimal transferPenalty,
 		List<PickView> picks,
-		List<TransferView> transfers) {
+		List<TransferView> transfers,
+		TransferMarketSummary transferMarket) {
 
 	public record CompetitionSummary(
 			Long id,
@@ -48,7 +49,8 @@ public record TeamViewResponse(
 			BigDecimal basePoints,
 			BigDecimal points,
 			BigDecimal rating,
-			String breakdown) {
+			String breakdown,
+			boolean injured) {
 	}
 
 	public record TransferView(
@@ -61,6 +63,25 @@ public record TeamViewResponse(
 			String club,
 			String clubCrestUrl,
 			BigDecimal price,
-			String counterpart) {
+			String counterpart,
+			String channel) {
+	}
+
+	public record TransferMarketSummary(TransferMarketScope week, TransferMarketScope season) {
+	}
+
+	public record TransferMarketScope(
+			DealGroup soldToMarket,
+			DealGroup soldReleaseClause,
+			DealGroup boughtFromMarket,
+			DealGroup boughtReleaseClause,
+			List<CounterpartGroup> soldTo,
+			List<CounterpartGroup> boughtFrom) {
+	}
+
+	public record DealGroup(int count, BigDecimal total) {
+	}
+
+	public record CounterpartGroup(String name, int count, BigDecimal total) {
 	}
 }

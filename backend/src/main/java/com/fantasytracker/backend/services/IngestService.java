@@ -250,6 +250,7 @@ public class IngestService {
 		squadPick.setCaptain(pick.captain());
 		squadPick.setViceCaptain(pick.viceCaptain());
 		squadPick.setPrice(pick.price());
+		squadPick.setInjured(pick.injured());
 		squadPickRepository.save(squadPick);
 	}
 

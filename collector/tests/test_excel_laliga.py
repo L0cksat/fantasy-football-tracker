@@ -79,6 +79,7 @@ def test_import_excel_maps_squad_and_transfers(tmp_path: Path):
     assert snapshot.picks[0].player.clubExternalId == "2829"
     assert snapshot.picks[1].role == "squad"
     assert snapshot.picks[1].player.externalId == "pedri-barcelona"
+    assert snapshot.picks[1].injured is False
     assert batch is not None
     assert batch.rounds[0].number == 2
     bought, sold = batch.rounds[0].transfers
@@ -124,3 +125,23 @@ def test_blank_team_name_falls_back_to_manager(tmp_path: Path):
     snapshots, _batch = load_workbook_payloads(path)
     assert snapshots[0].team["name"] == "Locksat"
     assert snapshots[0].team["managerName"] == "Locksat"
+
+
+def test_injured_column_maps_on_picks(tmp_path: Path):
+    path = tmp_path / "injured.xlsx"
+    book = Workbook()
+    book.active.title = "Read me"
+    _competition(book)
+    squads = book.create_sheet("Squads")
+    headers = list(_SQUADS_HEADERS) + ["injured"]
+    squads.append(headers)
+    squads.append([1, "GW1", "finished", 10, "Andrés Martín", "FWD", "Racing Santander", "squad", 0, None, 36, "", "", "injured"])
+    squads.append([1, "GW1", "finished", 10, "Iago Aspas", "FWD", "Celta Vigo", "starter", 2, 6.4, 8.5, "", "", "injured"])
+    squads.append([1, "GW1", "finished", 10, "Pedri", "MID", "Barcelona", "starter", 8, 7.1, 12, "", "", ""])
+    book.save(path)
+
+    snapshots, _batch = load_workbook_payloads(path)
+    by_name = {pick.player.name: pick.injured for pick in snapshots[0].picks}
+    assert by_name["Andrés Martín"] is True
+    assert by_name["Iago Aspas"] is True
+    assert by_name["Pedri"] is False

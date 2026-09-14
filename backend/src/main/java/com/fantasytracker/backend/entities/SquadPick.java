@@ -45,4 +45,7 @@ public class SquadPick {
 
 	@Column(precision = 12, scale = 6)
 	private BigDecimal price;
+
+	@Column(nullable = false)
+	private boolean injured;
 }

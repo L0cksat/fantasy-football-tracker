@@ -22,6 +22,7 @@ class PickPayload:
     viceCaptain: bool = False
     rating: float | None = None
     price: float | None = None
+    injured: bool = False
     breakdown: dict[str, Any] = field(default_factory=dict)
 
 
