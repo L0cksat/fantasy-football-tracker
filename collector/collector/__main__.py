@@ -16,7 +16,12 @@ from collector.adapters.sofascore import (
     transfers_from_payload,
 )
 from collector.publisher import BackendPublisher
+from collector.adapters.fpl import fpl_entry_id, pull_fpl
+from collector.adapters.wsl import pull_wsl, wsl_configured
 from collector.pull import adapter_for_target, pull_targets_from_env, run_pull
+
+FPL_SLUG = "premier-league-fantasy"
+WSL_SLUG = "wsl-fantasy"
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT.parent / ".env")
@@ -53,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
     pull_cmd.add_argument(
         "--competition",
         default=None,
-        help="Competition slug (premier-league, laliga, …). Default: every competition configured in .env",
+        help="Competition slug (premier-league, laliga, premier-league-fantasy, wsl-fantasy, …). Default: every configured competition",
     )
     pull_cmd.add_argument(
         "--gameweek",
@@ -162,18 +167,40 @@ def _run_pull_command(args: argparse.Namespace, publisher: BackendPublisher) -> 
     if not args.no_save:
         save_root = args.save_dir or (ROOT / "cache")
     targets = pull_targets_from_env()
+    want_fpl = bool(fpl_entry_id())
+    want_wsl = wsl_configured()
     if args.competition:
-        targets = [item for item in targets if item.slug == args.competition]
-        if not targets:
-            raise ValueError(
-                f"No squad URL in .env for {args.competition}. "
-                "Set a competition or squad URL (SOFASCORE_* / SOFASCORE_LALIGA_* / "
-                "SOFASCORE_SERIE_A_* / SOFASCORE_LIGUE_1_*)."
-            )
-    if not targets:
+        if args.competition == FPL_SLUG:
+            targets = []
+            want_fpl = True
+            want_wsl = False
+            if not fpl_entry_id():
+                raise ValueError("No FPL team id in .env. Set FPL_ENTRY_ID from /entry/{id}/event/1.")
+        elif args.competition == WSL_SLUG:
+            targets = []
+            want_fpl = False
+            want_wsl = True
+            if not wsl_configured():
+                raise ValueError(
+                    "No WSL credentials in .env. Set WSL_GAMEPLAY_ID and WSL_GAME_TOKEN "
+                    "(x-game-token from the my-team request headers)."
+                )
+        else:
+            want_fpl = False
+            want_wsl = False
+            targets = [item for item in targets if item.slug == args.competition]
+            if not targets:
+                raise ValueError(
+                    f"No squad URL in .env for {args.competition}. "
+                    "Set a competition or squad URL (SOFASCORE_* / SOFASCORE_LALIGA_* / "
+                    "SOFASCORE_SERIE_A_* / SOFASCORE_LIGUE_1_*), or use premier-league-fantasy / "
+                    "wsl-fantasy with their env credentials."
+                )
+    if not targets and not want_fpl and not want_wsl:
         raise ValueError(
             "No squad URL in .env. Set SOFASCORE_SQUAD_URL, SOFASCORE_LALIGA_*, "
-            "SOFASCORE_SERIE_A_COMPETITION_URL, or SOFASCORE_LIGUE_1_COMPETITION_URL."
+            "SOFASCORE_SERIE_A_COMPETITION_URL, SOFASCORE_LIGUE_1_COMPETITION_URL, "
+            "FPL_ENTRY_ID, or WSL_GAME_TOKEN + WSL_GAMEPLAY_ID."
         )
 
     pulls: list[dict] = []
@@ -212,13 +239,82 @@ def _run_pull_command(args: argparse.Namespace, publisher: BackendPublisher) -> 
         elif not target.transfers_url:
             print(f"{target.slug}: transfers URL is empty; skipped transfers pull.")
 
+    if want_fpl:
+        fpl_dir = (save_root / FPL_SLUG) if save_root is not None else None
+        fpl_result = pull_fpl(
+            publisher,
+            gameweek=args.gameweek,
+            dry_run=args.dry_run,
+            save_dir=fpl_dir,
+        )
+        pulls.append(
+            {
+                "competition": FPL_SLUG,
+                "snapshots": fpl_result["snapshots"],
+                "transfers": fpl_result["transfers"],
+                "published": fpl_result.get("published"),
+            }
+        )
+        if not args.dry_run:
+            published = fpl_result.get("published") or {}
+            for snapshot_result in published.get("snapshots") or []:
+                print(
+                    f"{FPL_SLUG}: ingested competition={snapshot_result.get('competitionId')} "
+                    f"gameweek={snapshot_result.get('gameweek')}"
+                )
+            transfers_result = published.get("transfers")
+            if transfers_result:
+                print(
+                    f"{FPL_SLUG}: ingested transfers competition={transfers_result.get('competitionId')} "
+                    f"rounds={transfers_result.get('rounds')}"
+                )
+
+    if want_wsl:
+        wsl_dir = (save_root / WSL_SLUG) if save_root is not None else None
+        wsl_result = pull_wsl(
+            publisher,
+            gameweek=args.gameweek,
+            dry_run=args.dry_run,
+            save_dir=wsl_dir,
+        )
+        pulls.append(
+            {
+                "competition": WSL_SLUG,
+                "snapshots": wsl_result["snapshots"],
+                "transfers": wsl_result["transfers"],
+                "published": wsl_result.get("published"),
+            }
+        )
+        if not args.dry_run:
+            published = wsl_result.get("published") or {}
+            for snapshot_result in published.get("snapshots") or []:
+                print(
+                    f"{WSL_SLUG}: ingested competition={snapshot_result.get('competitionId')} "
+                    f"gameweek={snapshot_result.get('gameweek')}"
+                )
+            transfers_result = published.get("transfers")
+            if transfers_result:
+                print(
+                    f"{WSL_SLUG}: ingested transfers competition={transfers_result.get('competitionId')} "
+                    f"rounds={transfers_result.get('rounds')}"
+                )
+
     if args.dry_run:
         if len(pulls) == 1:
-            payload: dict = {"snapshot": pulls[0]["snapshot"], "transfers": pulls[0]["transfers"]}
+            only = pulls[0]
+            if "snapshots" in only:
+                payload = {"snapshots": only["snapshots"], "transfers": only["transfers"]}
+            else:
+                payload = {"snapshot": only["snapshot"], "transfers": only["transfers"]}
         else:
             payload = {
                 "pulls": [
-                    {"competition": item["competition"], "snapshot": item["snapshot"], "transfers": item["transfers"]}
+                    {
+                        "competition": item["competition"],
+                        "snapshot": item.get("snapshot"),
+                        "snapshots": item.get("snapshots"),
+                        "transfers": item["transfers"],
+                    }
                     for item in pulls
                 ]
             }

@@ -1,6 +1,7 @@
 @if (pageBrand(); as brand) {
   <div
     class="page-brand"
+    [class.page-brand-fpl]="isOfficialFpl()"
     [style.--comp-primary]="brand.primary"
     [style.--comp-secondary]="brand.secondary"
   >
@@ -10,9 +11,9 @@
   </div>
 }
 
-<section class="dash" [class.dash-branded]="!!pageBrand()">
+<section class="dash" [class.dash-branded]="!!pageBrand()" [class.dash-fpl]="isOfficialFpl()">
   <header class="dash-hero">
-    <p class="eyebrow">SofaScore Fantasy tracker</p>
+    <p class="eyebrow">Fantasy Football tracker</p>
     <h1>Your leagues, weeks, and points</h1>
     <p class="lede">
       One dashboard for the squad you picked, how this gameweek scored, and how it stacks up against another week.
@@ -67,6 +68,7 @@
       <div
         class="panel-head"
         [class.panel-head-branded]="!!team.competition.primaryColor"
+        [class.panel-head-fpl]="isOfficialFpl()"
         [style.--comp-primary]="team.competition.primaryColor"
         [style.--comp-secondary]="team.competition.secondaryColor"
       >
@@ -126,7 +128,7 @@
                     }
                     <span>
                       {{ pick.name }}
-                      @if (pick.injured) {
+                      @if (isInjured(pick)) {
                         <em class="chip chip-injured">Injured</em>
                       }
                       @if (!isOfficialLaLiga() && pick.captain && team.tripleCaptain) {
@@ -178,7 +180,7 @@
                     }
                     <span>
                       {{ pick.name }}
-                      @if (pick.injured) {
+                      @if (isInjured(pick)) {
                         <em class="chip chip-injured">Injured</em>
                       }
                       @if (!isOfficialLaLiga() && pick.captain && team.tripleCaptain) {
@@ -416,7 +418,7 @@
       <div class="toolbar compact">
         <label>
           From
-          <select [ngModel]="fromGw()" (ngModelChange)="fromGw.set($event); onCompareChange()">
+          <select [ngModel]="fromGw()" (ngModelChange)="onFromChange($event)">
             @for (week of selectedCompetition()?.gameweeks ?? []; track week) {
               <option [ngValue]="week">GW{{ week }}</option>
             }
@@ -424,7 +426,7 @@
         </label>
         <label>
           To
-          <select [ngModel]="toGw()" (ngModelChange)="toGw.set($event); onCompareChange()">
+          <select [ngModel]="toGw()" (ngModelChange)="onToChange($event)">
             @for (week of selectedCompetition()?.gameweeks ?? []; track week) {
               <option [ngValue]="week">GW{{ week }}</option>
             }

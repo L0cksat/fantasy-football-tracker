@@ -405,6 +405,103 @@ class ApiSliceTest {
 				.andExpect(jsonPath("$.transferMarket.week.soldTo[0].total").value(9.0));
 	}
 
+	@Test
+	void officialFplUsesPremierLeagueBrandingAndClubBadges() throws Exception {
+		String snapshot = """
+				{
+				  "competition": {
+				    "source": "fpl",
+				    "externalId": "4795659",
+				    "name": "Premier League Fantasy",
+				    "season": "2026/27",
+				    "slug": "premier-league-fantasy"
+				  },
+				  "gameweek": { "number": 1, "name": "Gameweek 1", "status": "finished" },
+				  "team": { "name": "The Inbetweeners FC", "managerName": "Nicky Jones" },
+				  "picks": [
+				    {
+				      "player": { "externalId": "975079", "name": "João Pedro", "position": "FWD", "club": "Chelsea", "clubExternalId": "8" },
+				      "role": "starter",
+				      "captain": true,
+				      "viceCaptain": false,
+				      "points": 11
+				    }
+				  ],
+				  "teamPoints": 65,
+				  "tripleCaptain": false
+				}
+				""";
+		String created = mockMvc.perform(post("/api/v1/ingest/snapshots")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(snapshot))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		int competitionId = new com.fasterxml.jackson.databind.ObjectMapper().readTree(created).get("competitionId").asInt();
+		mockMvc.perform(get("/api/v1/competitions/" + competitionId + "/gameweeks/1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.competition.name").value("Premier League Fantasy"))
+				.andExpect(jsonPath("$.competition.primaryColor").value("#3c1c5a"))
+				.andExpect(jsonPath("$.competition.logoUrl")
+						.value("https://img.sofascore.com/api/v1/unique-tournament/17/image"))
+				.andExpect(jsonPath("$.teamPoints").value(65.0))
+				.andExpect(jsonPath("$.picks[0].points").value(22.0))
+				.andExpect(jsonPath("$.picks[0].playerPortraitUrl")
+						.value("https://img.sofascore.com/api/v1/player/975079/image"))
+				.andExpect(jsonPath("$.picks[0].clubCrestUrl")
+						.value("https://resources.premierleague.com/premierleague/badges/70/t8.png"));
+	}
+
+	@Test
+	void officialWslUsesSofaScoreBrandingAndCrests() throws Exception {
+		String snapshot = """
+				{
+				  "competition": {
+				    "source": "wsl",
+				    "externalId": "5b182499-9aa0-4e9b-8557-b4d37a4fd1eb",
+				    "name": "WSL Fantasy",
+				    "season": "2026/27",
+				    "slug": "wsl-fantasy"
+				  },
+				  "gameweek": { "number": 1, "name": "Gameweek 1", "status": "finished" },
+				  "team": { "name": "The Inbetweeners FC", "managerName": "Jack Sparrownx" },
+				  "picks": [
+				    {
+				      "player": { "externalId": "222", "name": "Alexia Putellas", "position": "MID", "club": "London City Lionesses", "clubExternalId": "9002" },
+				      "role": "starter",
+				      "captain": true,
+				      "viceCaptain": false,
+				      "points": 2
+				    }
+				  ],
+				  "teamPoints": 4,
+				  "tripleCaptain": false
+				}
+				""";
+		String created = mockMvc.perform(post("/api/v1/ingest/snapshots")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(snapshot))
+				.andExpect(status().isCreated())
+				.andReturn()
+				.getResponse()
+				.getContentAsString();
+		int competitionId = new com.fasterxml.jackson.databind.ObjectMapper().readTree(created).get("competitionId").asInt();
+		mockMvc.perform(get("/api/v1/competitions/" + competitionId + "/gameweeks/1"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.competition.name").value("WSL Fantasy"))
+				.andExpect(jsonPath("$.competition.primaryColor").value("#06121e"))
+				.andExpect(jsonPath("$.competition.secondaryColor").value("#00c2cb"))
+				.andExpect(jsonPath("$.competition.logoUrl")
+						.value("https://img.sofascore.com/api/v1/unique-tournament/1044/image"))
+				.andExpect(jsonPath("$.teamPoints").value(4.0))
+				.andExpect(jsonPath("$.picks[0].points").value(4.0))
+				.andExpect(jsonPath("$.picks[0].playerPortraitUrl")
+						.value("https://img.sofascore.com/api/v1/player/222/image"))
+				.andExpect(jsonPath("$.picks[0].clubCrestUrl")
+						.value("https://img.sofascore.com/api/v1/team/9002/image"));
+	}
+
 	private void ingest(String classpath) throws Exception {
 		String body = new String(new ClassPathResource(classpath).getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 		mockMvc.perform(post("/api/v1/ingest/snapshots")

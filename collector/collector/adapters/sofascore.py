@@ -177,6 +177,7 @@ def _from_canonical(payload: dict[str, Any]) -> Snapshot:
             viceCaptain=bool(pick.get("viceCaptain")),
             rating=_optional_float(pick.get("rating")),
             price=_optional_float(pick.get("price")),
+            injured=bool(pick.get("injured")),
             breakdown=pick.get("breakdown") or {},
         )
         for pick in payload["picks"]
@@ -231,6 +232,7 @@ def _from_sofascore_squad(payload: dict[str, Any]) -> Snapshot:
                 viceCaptain=False,
                 rating=rating,
                 price=_optional_float(item.get("price") if item.get("price") is not None else fantasy_player.get("price")),
+                injured=_injured_from_sofascore(item, fantasy_player, player_src),
                 breakdown={"goals": fantasy_player.get("goals"), "assists": fantasy_player.get("assists")},
             )
         )
@@ -268,6 +270,15 @@ def _from_sofascore_squad(payload: dict[str, Any]) -> Snapshot:
         tripleCaptain=triple_captain,
         transferPenalty=_optional_float(user_round.get("transferPenalty")),
     )
+
+
+def _injured_from_sofascore(item: dict[str, Any], fantasy_player: dict[str, Any], player_src: dict[str, Any]) -> bool:
+    if item.get("injured") or fantasy_player.get("injured") or player_src.get("injured"):
+        return True
+    injury = player_src.get("injury") or fantasy_player.get("injury") or {}
+    if isinstance(injury, dict) and str(injury.get("status") or "").lower() == "out":
+        return True
+    return False
 
 
 def _first_unique_tournament(squad: dict[str, Any]) -> dict[str, Any]:
@@ -331,6 +342,7 @@ def _from_sofascore_like(payload: dict[str, Any]) -> Snapshot:
             viceCaptain=bool(item.get("isViceCaptain") or item.get("viceCaptain")),
             rating=_optional_float(item.get("rating")),
             price=_optional_float(item.get("price") or item.get("fantasyPrice")),
+            injured=bool(item.get("injured") or player_src.get("injured")),
             breakdown=item.get("stats") or item.get("breakdown") or {},
         )
         picks.append(pick)

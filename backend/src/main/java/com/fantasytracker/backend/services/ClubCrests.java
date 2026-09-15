@@ -5,6 +5,8 @@ import java.util.Map;
 public final class ClubCrests {
 
 	private static final String SOFASCORE_TEAM_IMAGE = "https://img.sofascore.com/api/v1/team/%s/image";
+	private static final String FPL_BADGE_IMAGE =
+			"https://resources.premierleague.com/premierleague/badges/70/t%s.png";
 
 	private static final Map<String, String> SOFASCORE_PREMIER_LEAGUE_IDS = Map.ofEntries(
 			Map.entry("arsenal", "42"),
@@ -88,12 +90,21 @@ public final class ClubCrests {
 	}
 
 	public static String url(String source, String clubExternalId, String clubName) {
+		if (source != null && "fpl".equalsIgnoreCase(source)) {
+			String code = blankToNull(clubExternalId);
+			if (code != null && code.chars().allMatch(Character::isDigit)) {
+				return FPL_BADGE_IMAGE.formatted(code);
+			}
+		}
 		String id = blankToNull(clubExternalId);
 		if (id == null) {
 			id = SOFASCORE_LALIGA_IDS.get(normalize(clubName));
 		}
-		if (id == null && (source == null || "sofascore".equalsIgnoreCase(source))) {
+		if (id == null && (source == null || "sofascore".equalsIgnoreCase(source) || "fpl".equalsIgnoreCase(source))) {
 			id = SOFASCORE_PREMIER_LEAGUE_IDS.get(normalize(clubName));
+		}
+		if (id != null && !id.chars().allMatch(Character::isDigit)) {
+			return null;
 		}
 		if (id == null) {
 			return null;

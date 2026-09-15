@@ -11,27 +11,29 @@ public final class CompetitionBranding {
 	private static final String SOFASCORE_CATEGORY_IMAGE =
 			"https://img.sofascore.com/api/v1/category/%s/image";
 
-	private static final Map<String, Country> SOFASCORE_COUNTRIES = Map.of(
-			"17", new Country("England", "1"),
-			"8", new Country("Spain", "32"),
-			"23", new Country("Italy", "31"),
-			"34", new Country("France", "7"),
-			"35", new Country("Germany", "30"),
-			"7", new Country("Europe", "1465"),
-			"679", new Country("Europe", "1465"),
-			"242", new Country("USA", "26"),
-			"325", new Country("Brazil", "13"));
+	private static final Map<String, Country> SOFASCORE_COUNTRIES = Map.ofEntries(
+			Map.entry("17", new Country("England", "1")),
+			Map.entry("8", new Country("Spain", "32")),
+			Map.entry("23", new Country("Italy", "31")),
+			Map.entry("34", new Country("France", "7")),
+			Map.entry("35", new Country("Germany", "30")),
+			Map.entry("7", new Country("Europe", "1465")),
+			Map.entry("679", new Country("Europe", "1465")),
+			Map.entry("242", new Country("USA", "26")),
+			Map.entry("325", new Country("Brazil", "13")),
+			Map.entry("1044", new Country("England", "1")));
 
-	private static final Map<String, Colors> SOFASCORE_COLORS = Map.of(
-			"17", new Colors("#3c1c5a", "#f80158"),
-			"8", new Colors("#2f4a89", "#f4a32e"),
-			"23", new Colors("#09519e", "#008fd7"),
-			"34", new Colors("#091c3e", "#a9c011"),
-			"35", new Colors("#e2080e", "#8e0902"),
-			"7", new Colors("#062b5c", "#086aab"),
-			"679", new Colors("#3d1a08", "#f37d25"),
-			"242", new Colors("#e2231a", "#062f69"),
-			"325", new Colors("#C7FF00", "#969696"));
+	private static final Map<String, Colors> SOFASCORE_COLORS = Map.ofEntries(
+			Map.entry("17", new Colors("#3c1c5a", "#f80158")),
+			Map.entry("8", new Colors("#2f4a89", "#f4a32e")),
+			Map.entry("23", new Colors("#09519e", "#008fd7")),
+			Map.entry("34", new Colors("#091c3e", "#a9c011")),
+			Map.entry("35", new Colors("#e2080e", "#8e0902")),
+			Map.entry("7", new Colors("#062b5c", "#086aab")),
+			Map.entry("679", new Colors("#3d1a08", "#f37d25")),
+			Map.entry("242", new Colors("#e2231a", "#062f69")),
+			Map.entry("325", new Colors("#C7FF00", "#969696")),
+			Map.entry("1044", new Colors("#06121e", "#00c2cb")));
 
 	private CompetitionBranding() {
 	}
@@ -94,6 +96,12 @@ public final class CompetitionBranding {
 	private static String brandingTournamentId(String source, String externalId) {
 		if (source != null && "laliga-fantasy".equalsIgnoreCase(source)) {
 			return "8";
+		}
+		if (source != null && "fpl".equalsIgnoreCase(source)) {
+			return "17";
+		}
+		if (source != null && "wsl".equalsIgnoreCase(source)) {
+			return "1044";
 		}
 		return numericId(source, externalId);
 	}

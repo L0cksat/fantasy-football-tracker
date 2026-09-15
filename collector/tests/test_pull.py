@@ -326,7 +326,8 @@ def test_fetch_transfers_404_is_skipped():
         assert adapter.fetch_transfers("bundesliga", missing_ok=True) is None
 
 
-def test_run_pull_passes_current_round_id():
+@patch("collector.pull.annotate_snapshot_injuries", side_effect=lambda snapshot: snapshot)
+def test_run_pull_passes_current_round_id(_annotate):
     adapter = SofaScoreAdapter()
     adapter.squad_url = "https://example.test/round/1089/squad"
     adapter.competition_url = "https://example.test/meta"
@@ -367,7 +368,8 @@ def test_run_pull_passes_current_round_id():
     assert adapter.fetch_squad.call_args.kwargs["round_id"] == 1088
 
 
-def test_run_pull_publishes_snapshot_and_transfers():
+@patch("collector.pull.annotate_snapshot_injuries", side_effect=lambda snapshot: snapshot)
+def test_run_pull_publishes_snapshot_and_transfers(_annotate):
     adapter = SofaScoreAdapter()
     adapter.squad_url = "https://example.test/squad"
     adapter.competition_url = "https://example.test/meta"

@@ -14,6 +14,38 @@
   );
 }
 
+.page-brand-fpl,
+.dash-fpl,
+.panel-head-fpl {
+  --fpl-green: #01fc84;
+  --fpl-blue: #39a1f9;
+  --fpl-violet: #8c46ff;
+}
+
+.page-brand-fpl {
+  background: linear-gradient(
+    to left,
+    var(--comp-secondary) 0%,
+    var(--fpl-green) 14%,
+    var(--fpl-blue) 34%,
+    var(--fpl-violet) 56%,
+    var(--comp-primary) 82%
+  );
+}
+
+.page-brand-fpl::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 5px;
+  background: linear-gradient(
+    to right,
+    var(--fpl-green),
+    var(--fpl-blue),
+    var(--fpl-violet)
+  );
+}
+
 .page-brand-logo {
   position: absolute;
   right: -2%;
@@ -43,6 +75,28 @@
 
 .dash-branded .lede {
   color: rgba(238, 246, 232, 0.86);
+}
+
+.dash-fpl {
+  --ft-lime: var(--fpl-green);
+  --ft-border: color-mix(in srgb, var(--fpl-blue) 28%, rgba(238, 246, 232, 0.16));
+}
+
+.dash-fpl .totals article {
+  border-top: 2px solid var(--fpl-green);
+}
+
+.dash-fpl .totals article:nth-child(3n + 2) {
+  border-top-color: var(--fpl-blue);
+}
+
+.dash-fpl .totals article:nth-child(3n) {
+  border-top-color: var(--fpl-violet);
+}
+
+.dash-fpl select:focus {
+  outline: 2px solid var(--fpl-blue);
+  outline-offset: 1px;
 }
 
 .dash-hero h1 {
@@ -154,6 +208,17 @@ select {
     to left,
     var(--comp-secondary) 0%,
     var(--comp-primary) 62%
+  );
+}
+
+.panel-head-fpl {
+  background: linear-gradient(
+    to left,
+    var(--comp-secondary) 0%,
+    var(--fpl-green) 12%,
+    var(--fpl-blue) 32%,
+    var(--fpl-violet) 52%,
+    var(--comp-primary) 76%
   );
 }
 

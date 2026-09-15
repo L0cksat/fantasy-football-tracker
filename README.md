@@ -46,19 +46,20 @@ python -m collector import path\to\premier-league-transfers.json --meta path\to\
 
 python -m collector pull --dry-run
 python -m collector pull --competition laliga --dry-run
+python -m collector pull --competition premier-league-fantasy
 python -m collector pull
 ```
 
 Weekly Windows task (Monday 21:00): `powershell -ExecutionPolicy Bypass -File collector\register-weekly-task.ps1`
 
-The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull` fetches every competition that has URLs in `.env` (Premier League, LaLiga, Serie A, Ligue 1, Bundesliga, Champions League, Europa League, MLS, Brasileirão). HTTP 401 means refresh `SOFASCORE_SESSION`. Official LaLiga Fantasy is app-only (100M€ market, starting XI + squad, independent buys/sells, no captains): fill `collector/templates/laliga-fantasy-oficial.xlsx` and run `python -m collector import-excel`.
+The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull` fetches every competition that has URLs in `.env` (Premier League, LaLiga, Serie A, Ligue 1, Bundesliga, Champions League, Europa League, MLS, Brasileirão) plus official Premier League Fantasy when `FPL_ENTRY_ID` is set and official WSL Fantasy when `WSL_GAME_TOKEN` + `WSL_GAMEPLAY_ID` are set. HTTP 401 means refresh `SOFASCORE_SESSION` (SofaScore) or `WSL_GAME_TOKEN` (`x-game-token` from the my-team XHR, not Auth0 Bearer). Official FPL uses the public JSON API (team id from `/entry/{id}/event/1`); no cookie. Official LaLiga Fantasy is app-only (100M€ market, starting XI + squad, independent buys/sells, no captains): fill `collector/templates/laliga-fantasy-oficial.xlsx` and run `python -m collector import-excel`.
 
 ## Scoring and media
 
-- SofaScore `fixtures[].score` is **raw**. Captain display is ×2, triple captain is ×3. Team week totals stay SofaScore’s `userRound.score` (already includes the chip).
-- Crests: `https://img.sofascore.com/api/v1/team/{id}/image`
-- Portraits: `https://img.sofascore.com/api/v1/player/{id}/image`
-- Competition logos: `https://img.sofascore.com/api/v1/unique-tournament/{id}/image` (same endpoint the main SofaScore tournament page uses; Champions League is 7, Europa League is 679, MLS is 242, Brasileirão is 325)
+- SofaScore `fixtures[].score` is **raw**. Captain display is ×2, triple captain is ×3. Team week totals stay SofaScore’s `userRound.score` (already includes the chip). Official WSL `totalPoints` already includes captain ×2; the collector stores the raw half so the dashboard does not double it again.
+- Crests: SofaScore `https://img.sofascore.com/api/v1/team/{id}/image`; official FPL uses Premier League badge `t{code}.png`
+- Portraits: SofaScore `https://img.sofascore.com/api/v1/player/{id}/image` (official FPL maps names onto the Premier League season player list; official WSL maps onto unique-tournament 1044)
+- Competition logos: `https://img.sofascore.com/api/v1/unique-tournament/{id}/image` (same endpoint the main SofaScore tournament page uses; Champions League is 7, Europa League is 679, MLS is 242, Brasileirão is 325, WSL is 1044)
 - Transfers: official SofaScore transfers JSON (paired in/out per round). Squad-diff is only a fallback if a week has no official rows.
 
 ## API

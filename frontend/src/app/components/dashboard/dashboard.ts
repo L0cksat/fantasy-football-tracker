@@ -1,7 +1,7 @@
 import { DecimalPipe, NgClass } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CompareView, Competition, TeamView, TotalsView } from '../../models/tracker';
+import { CompareView, Competition, PickView, TeamView, TotalsView } from '../../models/tracker';
 import { CompetitionService } from '../../services/competition';
 
 @Component({
@@ -43,14 +43,17 @@ export class DashboardComponent {
     };
   });
 
-  readonly starters = computed(() =>
+  readonly starters = computed<PickView[]>(() =>
     (this.teamView()?.picks ?? []).filter((pick) => pick.role === 'starter'),
   );
-  readonly bench = computed(() =>
+  readonly bench = computed<PickView[]>(() =>
     (this.teamView()?.picks ?? []).filter((pick) => pick.role !== 'starter'),
   );
   readonly isOfficialLaLiga = computed(
     () => this.selectedCompetition()?.source === 'laliga-fantasy',
+  );
+  readonly isOfficialFpl = computed(
+    () => this.selectedCompetition()?.source === 'fpl',
   );
   readonly reserveHeading = computed(() => (this.isOfficialLaLiga() ? 'Squad' : 'Bench'));
   readonly showTransferCounterpart = computed(
@@ -67,7 +70,7 @@ export class DashboardComponent {
   }
 
   priceFormat(): string {
-    return this.isOfficialLaLiga() ? '1.1-6' : '1.1-1';
+    return this.isOfficialLaLiga() ? '1.1-2' : '1.1-1';
   }
 
   counterpartLabel(move: { counterpart: string | null; channel: string | null }): string {
@@ -125,17 +128,52 @@ export class DashboardComponent {
     this.refreshAll();
   }
 
-  onCompetitionChange(raw: string): void {
-    this.selectCompetition(Number(raw));
+  onCompetitionChange(raw: string | number): void {
+    const id = this.parseSelectNumber(raw);
+    if (id == null) {
+      return;
+    }
+    this.selectCompetition(id);
   }
 
-  onGameweekChange(raw: string): void {
-    this.gameweek.set(Number(raw));
+  onGameweekChange(raw: string | number): void {
+    const week = this.parseSelectNumber(raw);
+    if (week == null) {
+      return;
+    }
+    this.gameweek.set(week);
     this.loadTeam();
   }
 
-  onCompareChange(): void {
+  onFromChange(raw: string | number): void {
+    const week = this.parseSelectNumber(raw);
+    if (week == null) {
+      return;
+    }
+    this.fromGw.set(week);
     this.loadCompare();
+  }
+
+  onToChange(raw: string | number): void {
+    const week = this.parseSelectNumber(raw);
+    if (week == null) {
+      return;
+    }
+    this.toGw.set(week);
+    this.loadCompare();
+  }
+
+  private parseSelectNumber(raw: string | number): number | null {
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return raw;
+    }
+    const token = String(raw).split(':').pop()?.trim() ?? '';
+    const value = Number(token);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  isInjured(pick: PickView): boolean {
+    return pick.injured === true;
   }
 
   hideImage(event: Event): void {

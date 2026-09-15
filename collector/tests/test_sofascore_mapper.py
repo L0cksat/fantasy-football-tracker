@@ -21,6 +21,7 @@ def test_canonical_snapshot_round_trip():
                 "viceCaptain": False,
                 "points": 10,
                 "rating": 8.2,
+                "injured": True,
                 "breakdown": {"goals": 1},
             }
         ],
@@ -29,6 +30,7 @@ def test_canonical_snapshot_round_trip():
     assert snapshot.teamPoints == 10
     assert snapshot.picks[0].captain is True
     assert snapshot.picks[0].player.name == "Haaland"
+    assert snapshot.picks[0].injured is True
 
 
 def test_sofascore_like_export():
@@ -148,6 +150,35 @@ def test_sofascore_official_squad_export():
     assert gabriel.price == 7.9
     assert gabriel.player.club == "Arsenal"
     assert gabriel.player.clubExternalId == "42"
+    assert gabriel.injured is False
+
+
+def test_sofascore_squad_maps_nested_injury_status():
+    payload = {
+        "squad": {
+            "name": "The Inbetweeners FC",
+            "players": [
+                {
+                    "fantasyPlayer": {
+                        "player": {
+                            "id": 941168,
+                            "name": "William Saliba",
+                            "position": "D",
+                            "injury": {"reason": "Back Injury", "status": "out"},
+                        },
+                        "team": {"id": 42, "name": "Arsenal"},
+                    },
+                    "team": {"id": 42, "name": "Arsenal"},
+                    "fixtures": [{"score": 0}],
+                    "substitute": False,
+                    "captain": False,
+                }
+            ],
+        },
+        "userRound": {"score": 0, "fantasyRound": {"sequence": 5, "name": "Round 5", "isFinalized": False}},
+    }
+    snapshot = snapshot_from_payload(payload)
+    assert snapshot.picks[0].injured is True
 
 
 def test_sofascore_transfers_export():

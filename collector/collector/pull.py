@@ -13,6 +13,7 @@ from collector.adapters.sofascore import (
     snapshot_from_payload,
     transfers_from_payload,
 )
+from collector.adapters.sofascore_round import annotate_snapshot_injuries
 from collector.publisher import BackendPublisher
 
 
@@ -126,7 +127,7 @@ def run_pull(
 
     squad_payload = adapter.fetch_squad(competition, gameweek, round_id=round_id)
     _save_json(save_dir, "squad", squad_payload)
-    snapshot = snapshot_from_payload(squad_payload, meta)
+    snapshot = annotate_snapshot_injuries(snapshot_from_payload(squad_payload, meta))
 
     batch = None
     if adapter.transfers_url:
