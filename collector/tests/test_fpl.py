@@ -118,6 +118,9 @@ def test_fpl_snapshot_maps_captain_raw_points_and_badge_code():
     assert snapshot.picks[1].player.club == "Chelsea"
     assert snapshot.picks[1].player.clubExternalId == "8"
     assert snapshot.picks[1].player.externalId == "975079"
+    assert snapshot.picks[1].player.name == "João Pedro"
+    assert snapshot.picks[0].player.name == "David Raya"
+    assert snapshot.picks[2].player.name == "Bukayo Saka"
     assert snapshot.picks[1].rating is None
     assert snapshot.picks[1].injured is False
     assert snapshot.picks[2].role == "bench"
@@ -228,7 +231,7 @@ def test_fpl_transfers_convert_tenths_of_a_million():
     assert batch.rounds[0].number == 3
     assert batch.rounds[0].transferPenalty == 4
     pair = batch.rounds[0].transfers[0]
-    assert pair.playerIn is not None and pair.playerIn.name == "Saka"
+    assert pair.playerIn is not None and pair.playerIn.name == "Bukayo Saka"
     assert pair.playerIn.price == 10.0
-    assert pair.playerOut is not None and pair.playerOut.name == "Raya"
+    assert pair.playerOut is not None and pair.playerOut.name == "David Raya"
     assert pair.playerOut.price == 5.5

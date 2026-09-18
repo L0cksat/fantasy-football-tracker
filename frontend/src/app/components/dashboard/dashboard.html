@@ -191,6 +191,9 @@
                       @if (isInjured(pick)) {
                         <em class="chip chip-injured">Injured</em>
                       }
+                      @if (isSuspended(pick)) {
+                        <em class="chip chip-suspended">Suspended</em>
+                      }
                       @if (!isOfficialLaLiga() && pick.captain && team.tripleCaptain) {
                         <em class="chip">TC ×3</em>
                       } @else if (!isOfficialLaLiga() && pick.captain) {
@@ -243,6 +246,9 @@
                       @if (isInjured(pick)) {
                         <em class="chip chip-injured">Injured</em>
                       }
+                      @if (isSuspended(pick)) {
+                        <em class="chip chip-suspended">Suspended</em>
+                      }
                       @if (!isOfficialLaLiga() && pick.captain && team.tripleCaptain) {
                         <em class="chip">TC ×3</em>
                       } @else if (!isOfficialLaLiga() && pick.captain) {
@@ -267,59 +273,188 @@
         </table>
       </div>
 
-      @if (team.transfers.length) {
+      @if (team.transfers.length || mostExpensivePurchase() || highestPlayerSale()) {
         <h3>Transfers</h3>
         @if (!isOfficialLaLiga() && team.transferPenalty > 0) {
           <p class="muted">Hit −{{ team.transferPenalty | number: '1.0-1' }} pts</p>
         }
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th></th>
-                <th>Player</th>
-                <th>Pos</th>
-                <th>Club</th>
-                <th class="num">Price</th>
-                @if (showTransferCounterpart()) {
-                  <th>With</th>
-                }
-              </tr>
-            </thead>
-            <tbody>
-              @for (move of team.transfers; track move.direction + '-' + move.playerId) {
+
+        @if (mostExpensivePurchase() || highestPlayerSale()) {
+          <div class="transfer-highlights">
+            <div class="transfer-highlights-grid">
+              @if (mostExpensivePurchase(); as purchase) {
+                <div class="gw-potw transfer-highlight">
+                  <div class="gw-potw-head">
+                    <h3>Most expensive player purchase</h3>
+                  </div>
+                  <article
+                    class="potw-card"
+                    [ngStyle]="{
+                      '--potw-primary': team.competition.primaryColor || '#b6f34a',
+                      '--potw-secondary': team.competition.secondaryColor || '#eef6e8',
+                    }"
+                  >
+                    <div class="potw-meta">
+                      @if (team.competition.logoUrl) {
+                        <img
+                          class="potw-comp-logo"
+                          [src]="team.competition.logoUrl"
+                          [alt]="team.competition.name"
+                          (error)="hideImage($event)"
+                        />
+                      }
+                      <div>
+                        <span class="potw-comp-name">{{ team.competition.name }}</span>
+                      </div>
+                    </div>
+
+                    <div class="portrait-stage">
+                      @if (purchase.playerPortraitUrl) {
+                        <img
+                          class="portrait"
+                          [src]="purchase.playerPortraitUrl"
+                          [alt]="purchase.name"
+                          (error)="hideImage($event)"
+                        />
+                      } @else {
+                        <div class="portrait portrait-fallback" aria-hidden="true"></div>
+                      }
+                      @if (purchase.clubCrestUrl) {
+                        <img
+                          class="crest"
+                          [src]="purchase.clubCrestUrl"
+                          [alt]="purchase.club || 'Club crest'"
+                          (error)="hideImage($event)"
+                        />
+                      }
+                    </div>
+
+                    <div class="player-copy">
+                      <span class="shirt">{{ transferHighlightShirt(purchase) }}</span>
+                      <strong class="name">{{ purchase.name }}</strong>
+                      <span class="club">{{ purchase.club || '—' }}</span>
+                      <span class="gw-label">
+                        {{ purchase.price != null ? (purchase.price | number: priceFormat()) + 'M€' : '—' }}
+                      </span>
+                      <span class="deal-meta">{{ transferHighlightMeta(purchase) }}</span>
+                    </div>
+                  </article>
+                </div>
+              }
+
+              @if (highestPlayerSale(); as sale) {
+                <div class="gw-potw transfer-highlight">
+                  <div class="gw-potw-head">
+                    <h3>Highest player sale</h3>
+                  </div>
+                  <article
+                    class="potw-card"
+                    [ngStyle]="{
+                      '--potw-primary': team.competition.primaryColor || '#b6f34a',
+                      '--potw-secondary': team.competition.secondaryColor || '#eef6e8',
+                    }"
+                  >
+                    <div class="potw-meta">
+                      @if (team.competition.logoUrl) {
+                        <img
+                          class="potw-comp-logo"
+                          [src]="team.competition.logoUrl"
+                          [alt]="team.competition.name"
+                          (error)="hideImage($event)"
+                        />
+                      }
+                      <div>
+                        <span class="potw-comp-name">{{ team.competition.name }}</span>
+                      </div>
+                    </div>
+
+                    <div class="portrait-stage">
+                      @if (sale.playerPortraitUrl) {
+                        <img
+                          class="portrait"
+                          [src]="sale.playerPortraitUrl"
+                          [alt]="sale.name"
+                          (error)="hideImage($event)"
+                        />
+                      } @else {
+                        <div class="portrait portrait-fallback" aria-hidden="true"></div>
+                      }
+                      @if (sale.clubCrestUrl) {
+                        <img
+                          class="crest"
+                          [src]="sale.clubCrestUrl"
+                          [alt]="sale.club || 'Club crest'"
+                          (error)="hideImage($event)"
+                        />
+                      }
+                    </div>
+
+                    <div class="player-copy">
+                      <span class="shirt">{{ transferHighlightShirt(sale) }}</span>
+                      <strong class="name">{{ sale.name }}</strong>
+                      <span class="club">{{ sale.club || '—' }}</span>
+                      <span class="gw-label">
+                        {{ sale.price != null ? (sale.price | number: priceFormat()) + 'M€' : '—' }}
+                      </span>
+                      <span class="deal-meta">{{ transferHighlightMeta(sale) }}</span>
+                    </div>
+                  </article>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        @if (team.transfers.length) {
+          <div class="table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td>
-                    <em class="chip" [class.chip-out]="move.direction === 'out'">
-                      {{ transferLabel(move.direction) }}
-                    </em>
-                  </td>
-                  <td>
-                    <span class="player">
-                      @if (move.playerPortraitUrl) {
-                        <img class="portrait" [src]="move.playerPortraitUrl" alt="" width="24" height="24" (error)="hideImage($event)">
-                      }
-                      {{ move.name }}
-                    </span>
-                  </td>
-                  <td>{{ move.position || '—' }}</td>
-                  <td>
-                    <span class="club">
-                      @if (move.clubCrestUrl) {
-                        <img class="crest" [src]="move.clubCrestUrl" alt="" width="24" height="24" (error)="hideImage($event)">
-                      }
-                      {{ move.club || '—' }}
-                    </span>
-                  </td>
-                  <td class="num">{{ move.price != null ? (move.price | number: priceFormat()) : '—' }}</td>
+                  <th></th>
+                  <th>Player</th>
+                  <th>Pos</th>
+                  <th>Club</th>
+                  <th class="num">Price</th>
                   @if (showTransferCounterpart()) {
-                    <td>{{ counterpartLabel(move) }}</td>
+                    <th>With</th>
                   }
                 </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                @for (move of team.transfers; track move.direction + '-' + move.playerId) {
+                  <tr>
+                    <td>
+                      <em class="chip" [class.chip-out]="move.direction === 'out'">
+                        {{ transferLabel(move.direction) }}
+                      </em>
+                    </td>
+                    <td>
+                      <span class="player">
+                        @if (move.playerPortraitUrl) {
+                          <img class="portrait" [src]="move.playerPortraitUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                        }
+                        {{ move.name }}
+                      </span>
+                    </td>
+                    <td>{{ move.position || '—' }}</td>
+                    <td>
+                      <span class="club">
+                        @if (move.clubCrestUrl) {
+                          <img class="crest" [src]="move.clubCrestUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                        }
+                        {{ move.club || '—' }}
+                      </span>
+                    </td>
+                    <td class="num">{{ move.price != null ? (move.price | number: priceFormat()) : '—' }}</td>
+                    @if (showTransferCounterpart()) {
+                      <td>{{ counterpartLabel(move) }}</td>
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       }
 
       @if (isOfficialLaLiga() && team.transferMarket; as market) {
@@ -470,6 +605,23 @@
         }
       }
     </section>
+  }
+
+  @if (highestScoringGameweek(); as best) {
+    @if (lowestScoringGameweek(); as worst) {
+      <section class="totals score-extremes">
+        <article>
+          <span>Highest Scoring Gameweek</span>
+          <strong>{{ best.points | number: '1.0-1' }}</strong>
+          <em>{{ best.name }}</em>
+        </article>
+        <article>
+          <span>Lowest Scoring Gameweek</span>
+          <strong>{{ worst.points | number: '1.0-1' }}</strong>
+          <em>{{ worst.name }}</em>
+        </article>
+      </section>
+    }
   }
 
   <section class="panel">

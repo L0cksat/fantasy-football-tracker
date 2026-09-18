@@ -24,6 +24,7 @@ class PickPayload:
     rating: float | None = None
     price: float | None = None
     injured: bool = False
+    suspended: bool = False
     breakdown: dict[str, Any] = field(default_factory=dict)
 
 

@@ -48,4 +48,17 @@ public class SquadPick {
 
 	@Column(nullable = false)
 	private boolean injured;
+
+	@Column(nullable = false)
+	private boolean suspended;
+
+	/** Competition-context club / national side (not shared across competitions). */
+	@Column(length = 150)
+	private String club;
+
+	@Column(name = "club_external_id", length = 50)
+	private String clubExternalId;
+
+	@Column(name = "shirt_number")
+	private Integer shirtNumber;
 }

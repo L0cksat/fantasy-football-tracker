@@ -37,8 +37,9 @@ def pull_targets_from_env() -> list[PullTarget]:
 
     Other leagues use SOFASCORE_LALIGA_*, SOFASCORE_SERIE_A_*, SOFASCORE_LIGUE_1_*,
     SOFASCORE_BUNDESLIGA_*, SOFASCORE_CHAMPIONS_LEAGUE_*, SOFASCORE_EUROPA_LEAGUE_*,
-    SOFASCORE_MLS_*, SOFASCORE_BRASILEIRAO_*.
+    SOFASCORE_NATIONS_LEAGUE_*, SOFASCORE_MLS_*, SOFASCORE_BRASILEIRAO_*.
     A competition JSON URL is enough: squad and transfers URLs are derived from it.
+    A concrete /round/{id}/squad URL alone is also enough for the first ingest.
     """
     premier = _target_from_prefix("premier-league", "SOFASCORE_PREMIER_LEAGUE_")
     if not premier.squad_url and not premier.competition_url:
@@ -56,6 +57,7 @@ def pull_targets_from_env() -> list[PullTarget]:
         ("bundesliga", "SOFASCORE_BUNDESLIGA_"),
         ("champions-league", "SOFASCORE_CHAMPIONS_LEAGUE_"),
         ("europa-league", "SOFASCORE_EUROPA_LEAGUE_"),
+        ("nations-league", "SOFASCORE_NATIONS_LEAGUE_"),
         ("mls", "SOFASCORE_MLS_"),
         ("brasileirao", "SOFASCORE_BRASILEIRAO_"),
     ]

@@ -125,6 +125,7 @@ def pull_wsl(
             fixtures,
             ratings=overlay.get("ratings"),
             injured_ids=overlay.get("injuredIds"),
+            suspended_ids=overlay.get("suspendedIds"),
         )
         snapshots.append(snapshot)
         squads[number] = value
@@ -175,6 +176,7 @@ def snapshot_from_my_team(
     *,
     ratings: dict[str, float] | None = None,
     injured_ids: Iterable[str] | None = None,
+    suspended_ids: Iterable[str] | None = None,
 ) -> Snapshot:
     number = int(value.get("matchdayId") or value.get("gamedayId") or 1)
     ids = [str(item) for item in (value.get("arrTeam") or []) if item]
@@ -197,6 +199,7 @@ def snapshot_from_my_team(
         )
     status = _gameweek_status(number, value, catalog.get("tour") or {}, fixtures or catalog.get("fixtures") or [])
     marked = {str(item) for item in (injured_ids or [])}
+    suspended = {str(item) for item in (suspended_ids or [])}
     if status != "finished":
         marked |= _current_injured_ids(picks, catalog)
         marked |= {
@@ -204,6 +207,7 @@ def snapshot_from_my_team(
             for index, pick in enumerate(picks)
             if _index(availability, index, 1) not in AVAILABLE_STATUS
         }
+        marked -= suspended
     snapshot = Snapshot(
         competition=competition,
         gameweek={
@@ -218,7 +222,9 @@ def snapshot_from_my_team(
         tripleCaptain=False,
         transferPenalty=0,
     )
-    return apply_round_overlay(snapshot, ratings=ratings, injured_ids=marked)
+    return apply_round_overlay(
+        snapshot, ratings=ratings, injured_ids=marked, suspended_ids=suspended
+    )
 
 
 def transfers_from_squads(
@@ -390,6 +396,7 @@ def _current_injured_ids(picks: list[PickPayload], catalog: dict[str, Any]) -> s
 def _safe_round_overlay(round_number: int, season_id: int | None) -> dict[str, Any]:
     ratings: dict[str, float] = {}
     injured: set[str] = set()
+    suspended: set[str] = set()
     for tournament_id in (WSL_TOURNAMENT_ID, WSL2_TOURNAMENT_ID):
         try:
             overlay = fetch_round_overlay(
@@ -400,9 +407,10 @@ def _safe_round_overlay(round_number: int, season_id: int | None) -> dict[str, A
         except Exception:
             continue
         injured |= {str(item) for item in overlay.get("injuredIds") or []}
+        suspended |= {str(item) for item in overlay.get("suspendedIds") or []}
         for player_id, rating in (overlay.get("ratings") or {}).items():
             ratings[str(player_id)] = rating
-    return {"ratings": ratings, "injuredIds": injured}
+    return {"ratings": ratings, "injuredIds": injured, "suspendedIds": suspended}
 
 
 def _safe_wsl_players() -> list[dict[str, Any]]:

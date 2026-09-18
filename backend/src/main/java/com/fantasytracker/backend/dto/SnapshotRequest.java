@@ -58,6 +58,7 @@ public record SnapshotRequest(
 			BigDecimal rating,
 			BigDecimal price,
 			Map<String, Object> breakdown,
-			boolean injured) {
+			boolean injured,
+			boolean suspended) {
 	}
 }

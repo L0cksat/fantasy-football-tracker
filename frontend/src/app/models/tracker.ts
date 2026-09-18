@@ -83,6 +83,24 @@ export interface TeamView {
 export interface TransferMarketSummary {
   week: TransferMarketScope;
   season: TransferMarketScope;
+  mostExpensivePurchase: TransferHighlight | null;
+  highestSale: TransferHighlight | null;
+}
+
+export interface TransferHighlight {
+  playerId: number;
+  externalId: string;
+  name: string;
+  playerPortraitUrl: string | null;
+  position: string | null;
+  club: string | null;
+  clubCrestUrl: string | null;
+  shirtNumber: number | null;
+  price: number | null;
+  counterpart: string | null;
+  channel: 'market' | 'release-clause' | null;
+  gameweekNumber: number | null;
+  gameweekName: string | null;
 }
 
 export interface TransferMarketScope {
@@ -137,6 +155,7 @@ export interface PickView {
   rating: number | null;
   breakdown: string | null;
   injured: boolean;
+  suspended: boolean;
 }
 
 export interface CompareView {

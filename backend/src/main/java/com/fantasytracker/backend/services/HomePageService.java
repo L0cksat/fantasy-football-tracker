@@ -140,6 +140,15 @@ public class HomePageService {
 		}
 
 		Player player = bestPick.getPlayer();
+		String club = bestPick.getClub() != null && !bestPick.getClub().isBlank()
+				? bestPick.getClub()
+				: player.getClub();
+		String clubExternalId = bestPick.getClubExternalId() != null && !bestPick.getClubExternalId().isBlank()
+				? bestPick.getClubExternalId()
+				: player.getClubExternalId();
+		Integer shirtNumber = bestPick.getShirtNumber() != null
+				? bestPick.getShirtNumber()
+				: player.getShirtNumber();
 		String logo = CompetitionBranding.logoDarkUrl(competition.getSource(), competition.getExternalId());
 		if (logo == null) {
 			logo = CompetitionBranding.logoUrl(competition.getSource(), competition.getExternalId());
@@ -157,11 +166,11 @@ public class HomePageService {
 				player.getId(),
 				player.getExternalId(),
 				player.getName(),
-				player.getShirtNumber(),
+				shirtNumber,
 				player.getPosition(),
-				player.getClub(),
+				club,
 				PlayerPortraits.url(competition.getSource(), player.getExternalId()),
-				ClubCrests.url(competition.getSource(), player.getClubExternalId(), player.getClub()),
+				ClubCrests.url(competition.getSource(), clubExternalId, club),
 				bestPoints);
 	}
 
@@ -200,6 +209,7 @@ public class HomePageService {
 			case "35" -> "Bundesliga";
 			case "7" -> "Champions League";
 			case "679" -> "Europa League";
+			case "10783" -> "Nations League";
 			case "242" -> "MLS";
 			case "325" -> "Brasileirão";
 			case "1044" -> "WSL";

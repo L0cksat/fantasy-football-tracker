@@ -2,7 +2,7 @@ import { DecimalPipe, NgClass, NgStyle } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CompareView, Competition, PickView, TeamView, TotalsView } from '../../models/tracker';
+import { CompareView, Competition, PickView, TeamView, TotalsView, TransferHighlight } from '../../models/tracker';
 import { CompetitionService } from '../../services/competition';
 
 @Component({
@@ -73,6 +73,50 @@ export class DashboardComponent {
     }
     return picks.reduce((best, pick) => (pick.points > best.points ? pick : best));
   });
+
+  /** Best and worst team gameweeks across the season (from totals). */
+  readonly highestScoringGameweek = computed(() => {
+    const weeks = this.totalsView()?.gameweeks ?? [];
+    if (!weeks.length) {
+      return null;
+    }
+    return weeks.reduce((best, week) => (week.points > best.points ? week : best));
+  });
+
+  readonly lowestScoringGameweek = computed(() => {
+    const weeks = this.totalsView()?.gameweeks ?? [];
+    if (!weeks.length) {
+      return null;
+    }
+    return weeks.reduce((worst, week) => (week.points < worst.points ? week : worst));
+  });
+
+  readonly mostExpensivePurchase = computed(() => {
+    if (!this.isOfficialLaLiga()) {
+      return null;
+    }
+    return this.teamView()?.transferMarket?.mostExpensivePurchase ?? null;
+  });
+
+  readonly highestPlayerSale = computed(() => {
+    if (!this.isOfficialLaLiga()) {
+      return null;
+    }
+    return this.teamView()?.transferMarket?.highestSale ?? null;
+  });
+
+  transferHighlightShirt(player: TransferHighlight): string {
+    return player.shirtNumber != null ? String(player.shirtNumber) : '—';
+  }
+
+  transferHighlightMeta(player: TransferHighlight): string {
+    const week = player.gameweekName || (player.gameweekNumber != null ? `GW${player.gameweekNumber}` : null);
+    const deal = this.counterpartLabel(player);
+    if (week && deal) {
+      return `${week} · ${deal}`;
+    }
+    return week || deal || '—';
+  }
 
   transferLabel(direction: string): string {
     if (this.isOfficialLaLiga()) {
@@ -248,6 +292,10 @@ export class DashboardComponent {
 
   isInjured(pick: PickView): boolean {
     return pick.injured === true;
+  }
+
+  isSuspended(pick: PickView): boolean {
+    return pick.suspended === true;
   }
 
   hideImage(event: Event): void {

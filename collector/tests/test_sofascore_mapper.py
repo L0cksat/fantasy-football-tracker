@@ -153,6 +153,55 @@ def test_sofascore_official_squad_export():
     assert gabriel.injured is False
 
 
+def test_sofascore_squad_prefers_fantasy_position_over_player_profile():
+    """SofaScore player.position can be M while fantasyPlayer.position is F (attacking mid as FWD)."""
+    payload = {
+        "squad": {
+            "name": "BR Test",
+            "players": [
+                {
+                    "fantasyPlayer": {
+                        "position": "F",
+                        "player": {"id": 1, "name": "Luciano Acosta", "position": "M"},
+                        "team": {"id": 1961, "name": "Fluminense"},
+                    },
+                    "team": {"id": 1961, "name": "Fluminense"},
+                    "fixtures": [{"score": 2}],
+                    "substitute": False,
+                    "captain": False,
+                },
+                {
+                    "fantasyPlayer": {
+                        "position": "F",
+                        "player": {"id": 2, "name": "Henry Mosquera", "position": "M"},
+                        "team": {"id": 1999, "name": "Red Bull Bragantino"},
+                    },
+                    "team": {"id": 1999, "name": "Red Bull Bragantino"},
+                    "fixtures": [{"score": 1}],
+                    "substitute": True,
+                    "captain": False,
+                },
+            ],
+        },
+        "userRound": {
+            "score": 3,
+            "fantasyRound": {"name": "Round 28", "sequence": 28, "isFinalized": True},
+        },
+    }
+    meta = {
+        "userCompetition": {
+            "fantasyCompetition": {
+                "uniqueTournament": {"id": 325, "name": "Brasileirão", "slug": "brasileirao"},
+                "season": {"year": "2026"},
+            }
+        }
+    }
+    snapshot = snapshot_from_payload(payload, meta)
+    by_name = {pick.player.name: pick.player.position for pick in snapshot.picks}
+    assert by_name["Luciano Acosta"] == "FWD"
+    assert by_name["Henry Mosquera"] == "FWD"
+
+
 def test_sofascore_squad_maps_nested_injury_status():
     payload = {
         "squad": {

@@ -51,7 +51,8 @@ public record TeamViewResponse(
 			BigDecimal points,
 			BigDecimal rating,
 			String breakdown,
-			boolean injured) {
+			boolean injured,
+			boolean suspended) {
 	}
 
 	public record TransferView(
@@ -68,7 +69,27 @@ public record TeamViewResponse(
 			String channel) {
 	}
 
-	public record TransferMarketSummary(TransferMarketScope week, TransferMarketScope season) {
+	public record TransferMarketSummary(
+			TransferMarketScope week,
+			TransferMarketScope season,
+			TransferHighlight mostExpensivePurchase,
+			TransferHighlight highestSale) {
+	}
+
+	public record TransferHighlight(
+			Long playerId,
+			String externalId,
+			String name,
+			String playerPortraitUrl,
+			String position,
+			String club,
+			String clubCrestUrl,
+			Integer shirtNumber,
+			BigDecimal price,
+			String counterpart,
+			String channel,
+			Integer gameweekNumber,
+			String gameweekName) {
 	}
 
 	public record TransferMarketScope(

@@ -335,7 +335,8 @@ class ApiSliceTest {
 				      "viceCaptain": false,
 				      "points": 0,
 				      "price": 12,
-				      "injured": true
+				      "injured": true,
+				      "suspended": false
 				    }
 				  ],
 				  "teamPoints": 64
@@ -388,6 +389,7 @@ class ApiSliceTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.picks[?(@.role=='squad')].name").value(org.hamcrest.Matchers.hasItem("Pedri")))
 				.andExpect(jsonPath("$.picks[?(@.name=='Pedri')].injured").value(org.hamcrest.Matchers.hasItem(true)))
+				.andExpect(jsonPath("$.picks[?(@.name=='Pedri')].suspended").value(org.hamcrest.Matchers.hasItem(false)))
 				.andExpect(jsonPath("$.transfers.length()").value(2))
 				.andExpect(jsonPath("$.transfers[?(@.direction=='in')].name").value(org.hamcrest.Matchers.hasItem("Lamine Yamal")))
 				.andExpect(jsonPath("$.transfers[?(@.direction=='in')].counterpart").value(org.hamcrest.Matchers.hasItem("Market")))
@@ -402,7 +404,11 @@ class ApiSliceTest {
 				.andExpect(jsonPath("$.transferMarket.week.boughtFromMarket.total").value(18.0))
 				.andExpect(jsonPath("$.transferMarket.week.boughtReleaseClause.count").value(0))
 				.andExpect(jsonPath("$.transferMarket.week.soldTo[0].name").value("Otro Manager FC"))
-				.andExpect(jsonPath("$.transferMarket.week.soldTo[0].total").value(9.0));
+				.andExpect(jsonPath("$.transferMarket.week.soldTo[0].total").value(9.0))
+				.andExpect(jsonPath("$.transferMarket.mostExpensivePurchase.name").value("Lamine Yamal"))
+				.andExpect(jsonPath("$.transferMarket.mostExpensivePurchase.price").value(18.0))
+				.andExpect(jsonPath("$.transferMarket.highestSale.name").value("Joselu"))
+				.andExpect(jsonPath("$.transferMarket.highestSale.price").value(9.0));
 	}
 
 	@Test

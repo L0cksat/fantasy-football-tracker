@@ -96,6 +96,9 @@ def test_pull_targets_legacy_premier_and_laliga():
         "SOFASCORE_BRASILEIRAO_COMPETITION_URL": "",
         "SOFASCORE_BRASILEIRAO_SQUAD_URL": "",
         "SOFASCORE_BRASILEIRAO_TRANSFERS_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_SQUAD_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_TRANSFERS_URL": "",
     }
     with patch.dict(os.environ, env, clear=False):
         targets = pull_targets_from_env()
@@ -136,6 +139,9 @@ def test_pull_target_derives_squad_and_transfers_from_competition_url():
         "SOFASCORE_BRASILEIRAO_COMPETITION_URL": "",
         "SOFASCORE_BRASILEIRAO_SQUAD_URL": "",
         "SOFASCORE_BRASILEIRAO_TRANSFERS_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_SQUAD_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_TRANSFERS_URL": "",
     }
     with patch.dict(os.environ, env, clear=False):
         targets = pull_targets_from_env()
@@ -176,6 +182,9 @@ def test_pull_target_derives_champions_league_from_competition_url():
         "SOFASCORE_BRASILEIRAO_COMPETITION_URL": "",
         "SOFASCORE_BRASILEIRAO_SQUAD_URL": "",
         "SOFASCORE_BRASILEIRAO_TRANSFERS_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_SQUAD_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_TRANSFERS_URL": "",
     }
     with patch.dict(os.environ, env, clear=False):
         targets = pull_targets_from_env()
@@ -216,6 +225,9 @@ def test_pull_target_derives_europa_league_from_competition_url():
         "SOFASCORE_BRASILEIRAO_COMPETITION_URL": "",
         "SOFASCORE_BRASILEIRAO_SQUAD_URL": "",
         "SOFASCORE_BRASILEIRAO_TRANSFERS_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_SQUAD_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_TRANSFERS_URL": "",
     }
     with patch.dict(os.environ, env, clear=False):
         targets = pull_targets_from_env()
@@ -256,6 +268,9 @@ def test_pull_target_derives_mls_from_competition_url():
         "SOFASCORE_BRASILEIRAO_COMPETITION_URL": "",
         "SOFASCORE_BRASILEIRAO_SQUAD_URL": "",
         "SOFASCORE_BRASILEIRAO_TRANSFERS_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_SQUAD_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_TRANSFERS_URL": "",
     }
     with patch.dict(os.environ, env, clear=False):
         targets = pull_targets_from_env()
@@ -296,12 +311,58 @@ def test_pull_target_derives_brasileirao_from_competition_url():
         ),
         "SOFASCORE_BRASILEIRAO_SQUAD_URL": "",
         "SOFASCORE_BRASILEIRAO_TRANSFERS_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_SQUAD_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_TRANSFERS_URL": "",
     }
     with patch.dict(os.environ, env, clear=False):
         targets = pull_targets_from_env()
     assert [item.slug for item in targets] == ["brasileirao"]
     assert targets[0].transfers_url.endswith("/competition/140/transfers")
     assert targets[0].squad_url.endswith("/round/{roundId}/squad")
+
+
+def test_pull_target_accepts_nations_league_squad_url():
+    env = {
+        "SOFASCORE_SQUAD_URL": "",
+        "SOFASCORE_COMPETITION_URL": "",
+        "SOFASCORE_TRANSFERS_URL": "",
+        "SOFASCORE_PREMIER_LEAGUE_SQUAD_URL": "",
+        "SOFASCORE_PREMIER_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_LALIGA_SQUAD_URL": "",
+        "SOFASCORE_LALIGA_COMPETITION_URL": "",
+        "SOFASCORE_SERIE_A_COMPETITION_URL": "",
+        "SOFASCORE_SERIE_A_SQUAD_URL": "",
+        "SOFASCORE_SERIE_A_TRANSFERS_URL": "",
+        "SOFASCORE_LIGUE_1_COMPETITION_URL": "",
+        "SOFASCORE_LIGUE_1_SQUAD_URL": "",
+        "SOFASCORE_LIGUE_1_TRANSFERS_URL": "",
+        "SOFASCORE_BUNDESLIGA_COMPETITION_URL": "",
+        "SOFASCORE_BUNDESLIGA_SQUAD_URL": "",
+        "SOFASCORE_BUNDESLIGA_TRANSFERS_URL": "",
+        "SOFASCORE_CHAMPIONS_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_CHAMPIONS_LEAGUE_SQUAD_URL": "",
+        "SOFASCORE_CHAMPIONS_LEAGUE_TRANSFERS_URL": "",
+        "SOFASCORE_EUROPA_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_EUROPA_LEAGUE_SQUAD_URL": "",
+        "SOFASCORE_EUROPA_LEAGUE_TRANSFERS_URL": "",
+        "SOFASCORE_MLS_COMPETITION_URL": "",
+        "SOFASCORE_MLS_SQUAD_URL": "",
+        "SOFASCORE_MLS_TRANSFERS_URL": "",
+        "SOFASCORE_BRASILEIRAO_COMPETITION_URL": "",
+        "SOFASCORE_BRASILEIRAO_SQUAD_URL": "",
+        "SOFASCORE_BRASILEIRAO_TRANSFERS_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_COMPETITION_URL": "",
+        "SOFASCORE_NATIONS_LEAGUE_SQUAD_URL": (
+            "https://www.sofascore.com/api/v1/fantasy/user/abc/round/1176/squad"
+        ),
+        "SOFASCORE_NATIONS_LEAGUE_TRANSFERS_URL": "",
+    }
+    with patch.dict(os.environ, env, clear=False):
+        targets = pull_targets_from_env()
+    assert [item.slug for item in targets] == ["nations-league"]
+    assert targets[0].squad_url.endswith("/round/1176/squad")
+    assert targets[0].transfers_url == ""
 
 
 def test_get_json_401_raises_session_error():

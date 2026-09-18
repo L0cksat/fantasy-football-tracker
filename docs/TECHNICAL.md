@@ -1,12 +1,12 @@
 # Fantasy Football Tracker — technical reference
 
-Personal tracker: **Python collector** POSTs snapshots into **Spring Boot 3.5 + MySQL**, and **Angular 21** GETs a dashboard. The frontend never writes. Gameweeks are **rows**, not tables.
+Personal tracker: **Python collector** POSTs snapshots into **Spring Boot 3.5 + MySQL**, and **Angular 21** GETs a homepage + dashboard. The frontend never writes. Gameweeks are **rows**, not tables.
 
 **Sources**
 
 | `source` | Slug example | How data arrives |
 |---|---|---|
-| `sofascore` | `premier-league`, `laliga`, … | Logged-in SofaScore Fantasy XHRs + `SOFASCORE_SESSION` |
+| `sofascore` | `premier-league`, `laliga`, `nations-league`, … | Logged-in SofaScore Fantasy XHRs + `SOFASCORE_SESSION` |
 | `fpl` | `premier-league-fantasy` | Public FPL JSON (`FPL_ENTRY_ID`) |
 | `laliga-fantasy` | `laliga-fantasy-oficial` | Excel workbook (`import-excel`) |
 | `wsl` | `wsl-fantasy` | Official my-team XHR (`x-game-token`) + public feeds |
@@ -22,11 +22,15 @@ collector (pull / import / import-excel)
     POST /api/v1/ingest/snapshots
     POST /api/v1/ingest/transfers
         → IngestService upserts entities
+frontend  GET /api/v1/home
+        → HomePageService (brands + Players of the Week)
 frontend  GET /api/v1/competitions…
         → CompetitionQueryService + branding/crests/portraits
 ```
 
 Captain **display** is always ×2 (×3 if triple captain). Ingest stores **raw** points. Official WSL `totalPoints` already includes ×2, so the collector divides the captain’s value by 2 before POST.
+
+**Club vs national team:** the same SofaScore player id can appear as a club side (e.g. FC Barcelona in LaLiga) and a national side (Spain in Nations League). Club name, crest id, and shirt number for display are stored on **`squad_pick`** (competition context), not only on the shared `player` row.
 
 ---
 
@@ -58,9 +62,15 @@ Optional header `X-Ingest-Token` when `fantasy.ingest.token` is set.
 | **`ingestTransfers`** | `POST /api/v1/ingest/transfers` | Official transfer rows (paired in/out, or unpaired LaLiga buys/sells). |
 | **`cleanupSeed`** | `POST /api/v1/ingest/cleanup-seed` | Removes players whose `externalId` starts with `seed-` after switching to live data. |
 
+### HTTP — homepage (`HomeController`)
+
+| Method | Path | Why |
+|---|---|---|
+| **`home`** | `GET /api/v1/home` | League brand wash + Players of the Week for the landing page. |
+
 ### HTTP — read (`CompetitionController`)
 
-Frontend-only surface.
+Frontend-only surface for the leagues dashboard.
 
 | Method | Path | Why |
 |---|---|---|
@@ -69,6 +79,23 @@ Frontend-only surface.
 | **`gameweek`** | `GET /api/v1/competitions/{id}/gameweeks/{n}` | Same payload keyed by week number. |
 | **`compare`** | `GET /api/v1/competitions/{id}/compare?from=&to=` | Week-vs-week player deltas. |
 | **`totals`** | `GET /api/v1/competitions/{id}/totals` | Season sum of team week scores. |
+
+### `HomePageService`
+
+Why it exists: one read model for the homepage so Angular does not assemble brands/POTW from many competition calls.
+
+- **`homePage`** — all competitions; default prefers SofaScore `premier-league`; unique `LeagueBrand`s keyed by `CompetitionBranding.brandKey`; one `PlayerOfTheWeek` per competition that has a scored squad.
+- **`playerOfTheWeek(Competition)`** — resolves latest scored gameweek; picks the squad row with max `CaptainScoring.effective(raw, captain, tripleCaptain)`; club / shirt / crest prefer **pick-scoped** fields, then fall back to `Player`.
+- **`resolveLatestScoredGameweek`** — prefer latest `status=finished` week with picks; else latest team score with points &gt; 0; else last score row.
+- **`displayBrandName`** — short labels for the brand wash (`"10783"` → `"Nations League"`, etc.).
+
+#### Players of the Week vs MVP
+
+| Concept | Where | Rule |
+|---|---|---|
+| **POTW** | Backend `HomePageService` | Per competition: highest captain-effective points in that competition’s resolved latest GW (**your squad only**). |
+| **MVP** | Frontend `HomeComponent.topPlayerOfTheWeek` | Highest `points` across the returned `playersOfTheWeek` list (cross-competition). |
+| **GW card** | Frontend `DashboardComponent.playerOfTheWeek` | Highest `pick.points` in the **selected** competition gameweek. |
 
 ### `IngestService`
 
@@ -79,9 +106,10 @@ Why it exists: one upsert path for SofaScore, FPL, WSL, and Excel so the dashboa
 - **`removeSeedPlayers`** — cleanup for `seed-*` ids.
 - **`findAllCompetitions`** — used by tests/tooling.
 - **`upsertCompetition` / `upsertGameweek` / `upsertTeam` / `upsertPlayer` / `upsertPick` / `upsertPlayerScore` / `upsertTeamScore`** — idempotent writes keyed by source+external id (or team+player+week).
+- **`upsertPick`** — also writes **pick-scoped** `club`, `clubExternalId`, `shirtNumber` from the payload so club comps and Nations League do not overwrite each other on the shared `Player`.
 - **`upsertGameweekForTransfers` / `applyTransferPenalty`** — transfers can arrive for a week that has no squad yet.
 - **`removeStalePicks`** — a new XI replaces last week’s leftover rows.
-- **`toJson`** — stores pick `breakdown` (minutes, goals, …) as JSON text.
+- **`toJson` / `blankToNull`** — stores pick `breakdown` as JSON text; normalises empty club ids.
 
 ### `CompetitionQueryService`
 
@@ -89,11 +117,12 @@ Why it exists: GET payloads include derived media (crest, portrait, colours) and
 
 - **`listCompetitions`** — all competitions with branding + distinct gameweek numbers.
 - **`teamView` / `gameweekView`** — same builder; `teamView` picks latest week if unspecified.
-- **`compare`** — players in either week; points use captain multiplier per week’s triple-captain flag.
+- **`compare`** — players in either week; points use captain multiplier per week’s triple-captain flag; club via `clubOf`.
 - **`totals`** — ordered week scores + season total.
-- **`buildTeamView`** — starters/bench, portraits, crests, transfers, transfer-market summary.
+- **`buildTeamView`** — starters/bench, portraits, crests (pick-scoped club), transfers, transfer-market summary.
 - **`buildTransfers`** — stored `gameweek_transfer` rows if present; otherwise **squad-diff** against the previous week (WSL and gaps in official feeds).
-- **`toTransfer` (overloads)** — maps a player + price + counterpart into the dashboard transfer card.
+- **`toTransfer` (overloads)** — maps a player + price + counterpart into the dashboard transfer card; the `SquadPick` overload uses pick-scoped club.
+- **`clubOf` / `clubExternalIdOf` / `shirtNumberOf`** — prefer pick fields, else `Player` (legacy rows before migration).
 - **`buildTransferMarket` / `summarizeMarket` / `toCounterpartGroups` / `Accumulator`** — LaLiga market vs release-clause totals (week + season).
 - **`previousGameweek` / `tripleCaptain` / `pickComparator` / `positionOrder`** — GK→DEF→MID→FWD, starters before bench.
 - **`indexPicks` / `indexScores` / `pointsOf` / `resolveGameweek` / `requireCompetition` / `requireTeam` / `requireGameweek`** — lookups that 404 as 404-style failures.
@@ -107,14 +136,38 @@ Why it exists: GET payloads include derived media (crest, portrait, colours) and
 
 #### `CompetitionBranding`
 
-Maps `source` + `externalId` onto SofaScore unique-tournament ids (17 PL, 8 LaLiga, 23 Serie A, 34 Ligue 1, 35 Bundesliga, 7 UCL, 679 UEL, 242 MLS, 325 Brasileirão, **1044 WSL**). Official FPL/LaLiga/WSL reuse those ids even though `source` is not `sofascore`.
+Maps `source` + `externalId` onto SofaScore unique-tournament ids. Official FPL / LaLiga Fantasy / WSL reuse those ids even though `source` is not `sofascore`.
 
-- **`logoUrl` / `logoDarkUrl` / `flagUrl` / `countryName` / `primaryColor` / `secondaryColor`**
-- **`brandingTournamentId` / `numericId` / `country` / `colors`** — private mapping.
+**Public**
+
+| Method | Purpose |
+|---|---|
+| **`logoUrl` / `logoDarkUrl`** | Tournament image (homepage prefers dark). |
+| **`flagUrl` / `countryName`** | Category flag + label. |
+| **`primaryColor` / `secondaryColor`** | CSS brand colours for wash / cards / headers. |
+| **`brandKey`** | Shared visual key so FPL↔PL and Official LaLiga↔SofaScore LaLiga share one logo slot. |
+
+**Private:** `brandingTournamentId` (remaps `laliga-fantasy`→`8`, `fpl`→`17`, `wsl`→`1044`; else SofaScore numeric id), `numericId`, `country`, `colors`.
+
+**Brand keys**
+
+| Key | League | Primary / secondary |
+|---|---|---|
+| `17` | Premier League | `#3c1c5a` / `#f80158` |
+| `8` | LaLiga | `#2f4a89` / `#f4a32e` |
+| `23` | Serie A | `#09519e` / `#008fd7` |
+| `34` | Ligue 1 | `#091c3e` / `#a9c011` |
+| `35` | Bundesliga | `#e2080e` / `#8e0902` |
+| `7` | Champions League | `#062b5c` / `#086aab` |
+| `679` | Europa League | `#3d1a08` / `#f37d25` |
+| `10783` | Nations League | `#3a4179` / `#e5a422` |
+| `242` | MLS | `#e2231a` / `#062f69` |
+| `325` | Brasileirão | `#C7FF00` / `#969696` |
+| `1044` | WSL | `#06121e` / `#00c2cb` |
 
 #### `ClubCrests.url`
 
-FPL uses Premier League badge CDN `t{code}.png`. Everyone else uses `img.sofascore.com/api/v1/team/{id}/image`, with name fallbacks for PL/LaLiga clubs when the id is missing. WSL is **not** mapped through men’s PL names (Chelsea Women must keep a SofaScore women’s team id).
+FPL uses Premier League badge CDN `t{code}.png`. Everyone else uses `img.sofascore.com/api/v1/team/{id}/image`, with name fallbacks for PL/LaLiga clubs when the id is missing. WSL is **not** mapped through men’s PL names.
 
 #### `PlayerPortraits.url`
 
@@ -126,22 +179,22 @@ Numeric SofaScore player id → `img.sofascore.com/api/v1/player/{id}/image`. No
 
 ### Entities (JPA)
 
-Lombok `@Data`. Tables match `sql/schema.sql`.
+Lombok `@Data`. Tables match `sql/schema.sql`. Migration for pick club columns: `sql/migrate-squad-pick-club-context.sql` (also applied via `spring.jpa.hibernate.ddl-auto=update` locally).
 
 | Entity | Role |
 |---|---|
 | **`Competition`** | Unique `(source, externalId, season)`. |
 | **`Gameweek`** | Week **row** (`number`, `status`, dates). |
 | **`FantasyTeam`** | One team per competition. |
-| **`Player`** | Unique `(source, externalId)`; `externalId` is the SofaScore player id when resolved. |
-| **`SquadPick`** | Role, captain/VC, price, injured flag. |
+| **`Player`** | Unique `(source, externalId)`; shared identity (name, portrait id). Club fields are a soft cache / transfer fallback. |
+| **`SquadPick`** | Role, captain/VC, price, injured; **plus pick-scoped `club`, `clubExternalId`, `shirtNumber`**. |
 | **`PlayerGameweekScore`** | Raw `points`, optional `rating` + `breakdown`. |
 | **`TeamGameweekScore`** | Week total, triple-captain flag, transfer penalty. |
 | **`GameweekTransfer`** | Nullable in/out players, prices, counterpart, channel, sort order. |
 
 ### Repositories
 
-Spring Data query methods — no custom SQL. They exist so ingest and GET stay indexed on natural keys.
+Spring Data query methods — no custom SQL.
 
 - **`CompetitionRepository.findBySourceAndExternalIdAndSeason`**
 - **`GameweekRepository.findByCompetition_IdAndNumber`**, **`findByCompetition_IdOrderByNumberAsc`**
@@ -156,6 +209,7 @@ Spring Data query methods — no custom SQL. They exist so ingest and GET stay i
 
 - **`SnapshotRequest`** (+ nested competition/gameweek/team/player/pick) — ingest body.
 - **`TransfersRequest`** (+ round + pair) — ingest transfers; in/out may be null for LaLiga.
+- **`HomePageResponse`** — `defaultCompetitionId` / `defaultCompetitionSlug`, `LeagueBrand` list, `PlayerOfTheWeek` list.
 - **`CompetitionResponse`** — list item including branding URLs/colours.
 - **`TeamViewResponse`** — dashboard squad: picks, transfers, transfer-market summary, captain display fields (`points`, `basePoints`, `captainMultiplier`).
 - **`CompareResponse` / `PlayerDelta`**
@@ -170,14 +224,20 @@ Spring Data query methods — no custom SQL. They exist so ingest and GET stay i
 
 ## Frontend (Angular 21)
 
-Standalone components, signals, `HttpClient`. One route: the dashboard.
+Standalone components, signals, `HttpClient`. Routes: homepage + leagues dashboard. GSAP is used only for the homepage POTW marquee.
 
 ### Bootstrap
 
 - **`main.ts`** — `bootstrapApplication(App, appConfig)`.
 - **`appConfig`** — router, HTTP, global error listeners.
-- **`routes`** — `''` → `DashboardComponent`; wildcard redirects home.
-- **`App`** — shell with `<router-outlet>`. No logic; the dashboard is the product.
+- **`routes` (`app.routes.ts`)** — `''` → `HomeComponent`; `leagues` → `DashboardComponent`; wildcard → `''`.
+- **`App`** — shell with `<router-outlet>`.
+
+### `HomeService`
+
+Thin GET client at `http://localhost:8080/api/v1/home`.
+
+- **`getHome()`** — returns `HomePage`.
 
 ### `CompetitionService`
 
@@ -190,11 +250,52 @@ Thin GET client at `http://localhost:8080/api/v1/competitions`. Created so the U
 
 ### `tracker.ts` models
 
-TypeScript mirrors of GET JSON: `Competition`, `TeamView`, `PickView`, `TransferView`, `TransferMarket*`, `CompareView`, `PlayerDelta`, `TotalsView`. Exist so templates stay typed.
+TypeScript mirrors of GET JSON: `HomePage`, `LeagueBrand`, `PlayerOfTheWeek`, `Competition`, `TeamView`, `PickView`, `TransferView`, `TransferMarket*`, `CompareView`, `PlayerDelta`, `TotalsView`.
 
-### `DashboardComponent`
+### `HomeComponent` — landing page
 
-Why: one page for every league — branding, XI, bench/squad, transfers, compare, totals.
+Why: brand-first homepage with league wash, MVP card, and a sliding Players of the Week rail.
+
+**Signals:** `home`, `error`, `loading`.
+
+**Computed**
+
+- **`colorMix`** — builds `--home-mix` gradient from every `leagueBrands` primary/secondary pair.
+- **`leaguesHref` / `leaguesQuery`** — CTA to `/leagues` with optional `?competition=` from `defaultCompetitionId`.
+- **`topPlayerOfTheWeek`** — cross-competition MVP (max `points` in `playersOfTheWeek`).
+- **`marqueePlayers`** — `[...players, ...players]` so GSAP can loop seamlessly on half the track width.
+
+**Lifecycle / marquee**
+
+- **constructor** — `HomeService.getHome()`; `afterRenderEffect` calls `setupMarquee` when `#marqueeTrack` exists; `DestroyRef` → `killMarquee`.
+- **`setupMarquee(track)`** — GSAP `fromTo` `x: 0 → -scrollWidth/2`, ease `none`, `repeat: -1`, ~28 px/s; skips rebuild when distance unchanged; preserves pause state.
+- **`killMarquee`** — kills tween; clears transform.
+- **`pauseMarquee` / `resumeMarquee`** — bound to marquee `mouseenter` / `mouseleave`.
+
+**Helpers:** `hideImage`, `shirtLabel`, `isTopPlayer` (MVP highlight on duplicated marquee cards).
+
+#### Homepage POTW / MVP styling (`home.css`)
+
+| Class / token | Purpose |
+|---|---|
+| `.home`, `.home-wash` | Full-page atmosphere; wash uses `--home-mix` + soft radials. |
+| `.home-logos`, `.home-logo`, `.home-logo-0`…`-10` | Floating competition logos; **one unique slot each** (no `i % 5` overlap). |
+| `.home-content`, `.home-hero`, `.eyebrow`, `.lede`, `.cta`, `.banner` | Hero copy + CTA. |
+| `.mvp`, `.mvp-badge`, `.mvp-badge-compact` | Featured Top player of the week + MVP chip. |
+| `.potw`, `.potw-head` | Section title for the rail. |
+| `.potw-marquee` | Overflow hidden + edge fade mask. |
+| `.potw-rail` | Flex `width: max-content` track GSAP translates. |
+| `.potw-card` | Card chrome; `--potw-primary` / `--potw-secondary` from API. |
+| `.potw-card-mvp` | Lime border + stronger glow for the MVP duplicate. |
+| `.potw-meta`, `.comp-logo`, `.comp-name` | Competition row on the card. |
+| `.portrait-stage`, `.portrait`, `.portrait-fallback`, `.crest` | Portrait plane + club crest overlay. |
+| `.player-copy`, `.shirt`, `.name`, `.club`, `.gw-label` | Shirt, name, club, `Round N · X pts`. |
+
+Template: `home.html` — wash, logo field, hero, MVP `ng-template` card, marquee of cards sharing `#playerCard`.
+
+### `DashboardComponent` — leagues page
+
+Why: one page for every league — branding, XI, bench/squad, GW standout card, transfers, compare, totals.
 
 **Signals:** `competitions`, `selectedId`, `gameweek`, `fromGw`, `toGw`, `teamView`, `compareView`, `totalsView`, `error`, `loading`.
 
@@ -203,21 +304,35 @@ Why: one page for every league — branding, XI, bench/squad, transfers, compare
 - **`selectedCompetition`** — current dropdown row.
 - **`pageBrand`** — CSS variables from API primary/secondary + logo (page background).
 - **`starters` / `bench`** — split on `role === 'starter'` (LaLiga “squad” still uses non-starter role).
-- **`isOfficialLaLiga` / `isOfficialFpl`** — copy and FPL neon classes (`#01fc84`, `#39a1f9`, `#8c46ff` mixed with PL purple/pink).
+- **`isOfficialLaLiga` / `isOfficialFpl`** — copy and FPL neon classes.
 - **`reserveHeading`** — “Squad” vs “Bench”.
 - **`showTransferCounterpart`** — LaLiga or any move with a counterpart.
+- **`playerOfTheWeek`** — max `pick.points` in the current `teamView` (GW card).
 
 **Methods**
 
-- **`constructor`** — loads competitions; selects the first.
+- **`constructor`** — loads competitions; honour `?competition=` query; selects default.
 - **`selectCompetition`** — latest week, compare from first→latest, refresh all three GETs.
 - **`onCompetitionChange` / `onGameweekChange` / `onCompareChange`** — template bindings.
-- **`transferLabel` / `priceFormat` / `counterpartLabel` / `hasMarketDeals`** — LaLiga market wording and 6-decimal prices (Purić-style).
-- **`hideImage`** — hide broken crest/portrait (no alt junk).
+- **`transferLabel` / `priceFormat` / `counterpartLabel` / `hasMarketDeals`** — LaLiga market wording and prices.
+- **`shirtLabel`** — shirt number or `—` for GW POTW card.
+- **`hideImage`** — hide broken crest/portrait.
 - **`signed`** — `+n` / `n` for compare deltas.
-- **`refreshAll` / `loadTeam` / `loadCompare` / `loadTotals`** — parallel-ish HTTP; errors set `error`.
+- **`refreshAll` / `loadTeam` / `loadCompare` / `loadTotals`** — HTTP; errors set `error`.
 
-Templates/styles: `dashboard.html` (branded page, FPL extra classes), `dashboard.css` (league colours + FPL neon overlay).
+#### Competition-page GW POTW card styling (`dashboard.css`)
+
+Same visual language as homepage cards, scoped under the competition view:
+
+| Class | Purpose |
+|---|---|
+| `.gw-potw`, `.gw-potw-head` | Centered “Player of the week” block above the squad. |
+| `.potw-card` (+ nested portrait / crest / copy) | Card using `--potw-primary` / `--potw-secondary` from the selected competition. |
+| `.potw-meta`, `.potw-comp-logo`, `.potw-comp-name` | Competition header on the GW card. |
+
+Also: `.page-brand`, `.page-brand-fpl`, `.panel-head-branded`, FPL neon overlays — competition header theming (not POTW-specific).
+
+Templates/styles: `dashboard.html`, `dashboard.css`.
 
 ---
 
@@ -231,7 +346,7 @@ Package `collector`, CLI `python -m collector`. Loads repo-root then `collector/
 - **`_run_import`** — local JSON (squad or transfers export).
 - **`_run_import_excel`** — official LaLiga workbook.
 - **`_run_sync`** — legacy single-GW SofaScore URL.
-- **`_run_pull_command`** — every SofaScore target in `.env`, plus FPL if `FPL_ENTRY_ID`, plus WSL if gameplay id + game token. `--competition` selects one slug (`premier-league-fantasy`, `wsl-fantasy`, …).
+- **`_run_pull_command`** — every SofaScore target in `.env`, plus FPL if `FPL_ENTRY_ID`, plus WSL if gameplay id + game token. `--competition` selects one slug (`premier-league-fantasy`, `nations-league`, `wsl-fantasy`, …).
 
 ### Canonical models (`models.py`)
 
@@ -246,7 +361,7 @@ Package `collector`, CLI `python -m collector`. Loads repo-root then `collector/
 ### Pull orchestration (`pull.py`)
 
 - **`PullTarget`** — slug + competition/squad/transfers/gameweek URLs.
-- **`pull_targets_from_env`** — Premier League unprefixed `SOFASCORE_*` or `SOFASCORE_PREMIER_LEAGUE_*`; other leagues `SOFASCORE_LALIGA_*`, `SERIE_A`, `LIGUE_1`, `BUNDESLIGA`, `CHAMPIONS_LEAGUE`, `EUROPA_LEAGUE`, `MLS`, `BRASILEIRAO`.
+- **`pull_targets_from_env`** — Premier League unprefixed `SOFASCORE_*` or `SOFASCORE_PREMIER_LEAGUE_*`; other leagues `SOFASCORE_LALIGA_*`, `SERIE_A`, `LIGUE_1`, `BUNDESLIGA`, `CHAMPIONS_LEAGUE`, `EUROPA_LEAGUE`, **`NATIONS_LEAGUE`**, `MLS`, `BRASILEIRAO`. A concrete `/round/{id}/squad` URL alone is enough for a first Nations League ingest.
 - **`complete_target`** — from a Fantasy `…/competition/{id}` URL, derive `/transfers` and `/round/{roundId}/squad`.
 - **`_target_from_prefix`** — env → `PullTarget`.
 - **`adapter_for_target`** — `SofaScoreAdapter` for that target.
@@ -257,12 +372,14 @@ Package `collector`, CLI `python -m collector`. Loads repo-root then `collector/
 
 Why: replay **your** Network JSON URLs with your cookie; impersonate Chrome (`curl_cffi`) because Python `requests` was WAF 403.
 
+- **`CLUB_BY_ID` / `CLUB_BY_CODE`** — expand abbreviations to full club names (PL includes Sunderland `41`/`SUN`, AFC Bournemouth `60`/`BOU`, Liverpool, Spurs, …; plus LaLiga/Ligue 1/Serie A/MLS/Brasileirão). Transfers often only send `teamId` + `nameCode`.
+- **`resolve_club_name`** — prefer `CLUB_BY_ID`, then **full API `name`**, then `CLUB_BY_CODE`. Full names win over codes so national `ESP` → Spain is not rewritten to Espanyol.
 - **`normalize_position`**
 - **`snapshot_from_payload`** — canonical snapshot, SofaScore squad, or “sofascore-like” shapes.
 - **`is_transfers_export` / `transfers_from_payload`**
 - **`_from_canonical` / `_from_sofascore_squad` / `_from_sofascore_like`**
 - **`_injured_from_sofascore` / `_first_unique_tournament` / `_normalize_season` / `_date_from_timestamp`**
-- **`_transfer_player` / `_club_external_id` / `_optional_float`**
+- **`_transfer_player` / `_club_external_id` / `_optional_float` / `_optional_int`**
 - **`SofaScoreSessionError`** — 401 → refresh `SOFASCORE_SESSION`.
 - **`SofaScoreAdapter`**
   - **`fetch_competitions` / `fetch_meta` / `fetch_rounds` / `fetch_squad` / `fetch_transfers` / `fetch_gameweek_scores`**
@@ -284,15 +401,15 @@ Uses **known** SofaScore paths only: `unique-tournament/{id}/seasons`, `…/seas
 
 ### Player directory (`adapters/sofascore_directory.py`)
 
-Why: official FPL/WSL ids are not SofaScore ids; portraits need numeric player ids.
+Why: official FPL/WSL ids are not SofaScore ids; portraits (and FPL display names) need numeric player ids / SofaScore `playerName`.
 
 - **`fold_name` / `club_key`** — accents, FC/Women/Lionesses, Brighton & Hove, Man Utd aliases.
 - **`fetch_tournament_players` / `fetch_premier_league_players`**
 - **`resolve_sofascore_player`** — club then name tokens.
-- **`search_sofascore_player`** — `search/all` fallback (same family as LaLiga id fill).
+- **`search_sofascore_player`** — `search/all` fallback.
 - **`_tokens_match`**
 
-Tournament constants: PL **17**, WSL **1044**, WSL2 **10553**. Unique-tournament **44** is 2. Bundesliga, not WSL.
+Tournament constants: PL **17**, WSL **1044**, WSL2 **10553**. Nations League branding tournament id **10783**.
 
 ### Official FPL (`adapters/fpl.py`)
 
@@ -300,8 +417,10 @@ Public `fantasy.premierleague.com/api`. No cookie.
 
 - **`fpl_entry_id` / `pull_fpl`** — bootstrap, entry, history, transfers, per-GW picks + live; SofaScore overlay on tournament 17.
 - **`catalog_from_bootstrap` / `competition_payload` / `team_payload` / `snapshot_from_picks` / `transfers_from_fpl`**
-- **`_pick_from_fpl` / `_transfer_pair` / `_transfer_player` / `_player_from_element` / `_sofascore_player_id`**
-- **`_safe_round_overlay` / `_current_injured_ids`** — FPL status `i` + SofaScore missing/out.
+- **`_pick_from_fpl` / `_transfer_pair` / `_transfer_player` / `_player_from_element`**
+- **`_display_name`** — prefer SofaScore `playerName`, then FPL `first_name` + `second_name`, then `web_name` (dashboard shows full names, not “Virgil” / “Gabriel”).
+- **`_resolve_sofascore_player` / `_sofascore_player_id`** — cache hit rows for id + name; legacy id cache kept for injury overlays.
+- **`_optional_shirt` / `_safe_round_overlay` / `_current_injured_ids`**
 - **`_event_status` / `_season` / `_price`** — prices in tenths of a million.
 - **`_optional_float` / `_get_json` / `_save_json`**
 
@@ -309,17 +428,15 @@ Captain live points are **raw**; dashboard ×2.
 
 ### Official WSL (`adapters/wsl.py`)
 
-Auth is request header **`x-game-token`** (env `WSL_GAME_TOKEN`, fallback `WSL_BEARER`). Auth0 Bearer is identity, not my-team. Public config/feeds discovered from official `configurations.json` / mixApi (not invented gameplay paths).
+Auth is request header **`x-game-token`** (env `WSL_GAME_TOKEN`, fallback `WSL_BEARER`). Auth0 Bearer is identity, not my-team.
 
 - **`wsl_game_token` / `wsl_gameplay_id` / `wsl_configured` / `pull_wsl`**
-- **`competition_payload` / `team_payload` / `snapshot_from_my_team` / `transfers_from_squads`** — transfers are week-to-week `arrTeam` diffs (no official transfers XHR).
+- **`competition_payload` / `team_payload` / `snapshot_from_my_team` / `transfers_from_squads`** — transfers are week-to-week `arrTeam` diffs.
 - **`_pick_from_wsl` / `_player_from_row` / `_sofascore_player_id` / `_transfer_player`**
 - **`_current_injured_ids` / `_safe_round_overlay` / `_safe_wsl_players`** — overlay 1044 + 10553.
 - **`_gameweek_status` / `_starts_at` / `_season`**
 - **`_raw_points`** — my-team `totalPoints` **already includes captain ×2**; store half so the API does not double again.
 - **`_team_points` / `_position_name` / `_short_id` / `_index` / `_optional_float` / `_feed_value` / `_get_json` / `_save_json`**
-
-Feeds used: `/fantasy/services/gameplay/{id}/{week}/my-team`, `/feeds/tour/details/1.json`, `/feeds/players/matchday_en_1_{week}.json`, `/feeds/fixtures/fixtures_en_1.json`.
 
 ### Official LaLiga Excel (`adapters/excel_laliga.py`)
 
@@ -330,8 +447,6 @@ App-only game (100M€ market, XI + unused squad, unpaired buys/sells, no captai
 - **`_pick_from_row` / `_deal_from_row` / `_transfer_player`**
 - **`_key_values` / `_table_rows` / `_id_or_slug` / `_slug` / `_digits` / `_int` / `_optional_float` / `_optional_text` / `_position` / `_action` / `_injured` / `_role`**
 
-Yellow EXAMPLE rows are skipped. Do not overwrite the empty template with personal GW data.
-
 ### File import (`adapters/file_import.py`)
 
 - **`FileImportAdapter.fetch_competitions` / `fetch_squad` / `fetch_gameweek_scores` / `_load`** — saved Network JSON when URLs are unavailable.
@@ -339,11 +454,11 @@ Yellow EXAMPLE rows are skipped. Do not overwrite the empty template with person
 ### Excel template builder (`templates/build_laliga_fantasy_workbook.py`)
 
 - **`build`** — writes `laliga-fantasy-oficial.xlsx`.
-- **`_readme` / `_competition` / `_squads` / `_transfers` / `_clubs` / `_header_row` / `_fill_row` / `_list`** — styling and dropdowns so the importer has a stable schema.
+- **`_readme` / `_competition` / `_squads` / `_transfers` / `_clubs` / `_header_row` / `_fill_row` / `_list`**
 
 ### Collector tests
 
-`test_fpl`, `test_wsl`, `test_pull`, `test_sofascore_*`, `test_excel_laliga`, `test_sofascore_directory` — mapping and env targeting without printing secrets.
+`test_fpl`, `test_wsl`, `test_pull` (includes Nations League squad-only target), `test_sofascore_*`, `test_excel_laliga`, `test_sofascore_directory` — mapping and env targeting without printing secrets.
 
 ---
 
@@ -352,10 +467,17 @@ Yellow EXAMPLE rows are skipped. Do not overwrite the empty template with person
 | Variable | Purpose |
 |---|---|
 | `SOFASCORE_SESSION` | Cookie value from a Fantasy XHR |
-| `SOFASCORE_*` / `SOFASCORE_<LEAGUE>_*` | Competition / squad / transfers URLs |
+| `SOFASCORE_*` / `SOFASCORE_<LEAGUE>_*` | Competition / squad / transfers URLs (incl. `SOFASCORE_NATIONS_LEAGUE_*`) |
 | `FPL_ENTRY_ID` | Public FPL team id |
 | `WSL_GAMEPLAY_ID` | Gameplay UUID in my-team path |
 | `WSL_GAME_TOKEN` (or `WSL_BEARER`) | `x-game-token` header (~24h). Not Auth0. |
 | `BACKEND_URL` / `INGEST_TOKEN` | Publisher target |
 
 Never log tokens. HTTP 401 on SofaScore → refresh cookie. HTTP 401 on WSL → copy a fresh `x-game-token`.
+
+---
+
+## Docs / screenshots
+
+- **`docs/TECHNICAL.md`** — this file.
+- **`docs/screenshots/`** — README media (`home.png`, `leagues.png`, `potw-marquee.gif`).

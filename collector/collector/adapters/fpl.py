@@ -96,6 +96,7 @@ def pull_fpl(
                 team,
                 ratings=overlay.get("ratings"),
                 injured_ids=overlay.get("injuredIds"),
+                suspended_ids=overlay.get("suspendedIds"),
             )
         )
 
@@ -156,6 +157,7 @@ def snapshot_from_picks(
     *,
     ratings: dict[str, float] | None = None,
     injured_ids: Iterable[str] | None = None,
+    suspended_ids: Iterable[str] | None = None,
 ) -> Snapshot:
     live_by_id = {
         int(item["id"]): item
@@ -172,8 +174,9 @@ def snapshot_from_picks(
     deadline = str(event.get("deadline_time") or "")
     status = _event_status(event)
     marked = {str(item) for item in (injured_ids or [])}
+    suspended = {str(item) for item in (suspended_ids or [])}
     if status != "finished":
-        marked |= _current_injured_ids(picks, catalog)
+        marked |= _current_injured_ids(picks, catalog) - suspended
     snapshot = Snapshot(
         competition=competition,
         gameweek={
@@ -188,7 +191,9 @@ def snapshot_from_picks(
         tripleCaptain=chip == "3xc",
         transferPenalty=_optional_float(history.get("event_transfers_cost")),
     )
-    return apply_round_overlay(snapshot, ratings=ratings, injured_ids=marked)
+    return apply_round_overlay(
+        snapshot, ratings=ratings, injured_ids=marked, suspended_ids=suspended
+    )
 
 
 def transfers_from_fpl(
@@ -277,28 +282,56 @@ def _transfer_player(element_id: Any, cost: Any, catalog: dict[str, Any]) -> Tra
 
 
 def _player_from_element(element_id: int, element: dict[str, Any], club: dict[str, Any], catalog: dict[str, Any] | None = None) -> PlayerPayload:
-    name = element.get("web_name") or element.get("second_name") or f"Player {element_id}"
     club_code = club.get("code")
-    sofascore_id = _sofascore_player_id(element_id, element, club, catalog)
+    sofascore = _resolve_sofascore_player(element_id, element, club, catalog)
     return PlayerPayload(
-        externalId=sofascore_id,
-        name=str(name),
+        externalId=str(sofascore["playerId"]) if sofascore and sofascore.get("playerId") is not None else f"fpl-{element_id}",
+        name=_display_name(element, sofascore),
         position=POSITIONS.get(int(element.get("element_type") or 0)),
         club=club.get("name"),
         clubExternalId=str(club_code) if club_code is not None else None,
+        shirtNumber=_optional_shirt(element),
     )
 
 
-def _sofascore_player_id(
+def _display_name(element: dict[str, Any], sofascore: dict[str, Any] | None) -> str:
+    """Prefer SofaScore full name, then FPL first+second, then web_name."""
+    sofa_name = str((sofascore or {}).get("playerName") or "").strip()
+    if sofa_name:
+        return sofa_name
+    first = str(element.get("first_name") or "").strip()
+    second = str(element.get("second_name") or "").strip()
+    if first and second and second.lower() not in first.lower():
+        return f"{first} {second}".strip()
+    if first:
+        return first
+    if second:
+        return second
+    return str(element.get("web_name") or f"Player {element.get('id') or ''}").strip()
+
+
+def _optional_shirt(element: dict[str, Any]) -> int | None:
+    raw = element.get("squad_number")
+    if raw is None or raw == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_sofascore_player(
     element_id: int,
     element: dict[str, Any],
     club: dict[str, Any],
     catalog: dict[str, Any] | None,
-) -> str:
+) -> dict[str, Any] | None:
     directory = (catalog or {}).get("sofascore_players") or []
-    cache = (catalog or {}).setdefault("_sofascore_ids", {})
+    cache = (catalog or {}).setdefault("_sofascore_hits", {})
     if element_id in cache:
         return cache[element_id]
+    # Keep legacy id-only cache in sync for injury overlays.
+    id_cache = (catalog or {}).setdefault("_sofascore_ids", {})
     club_name = str(club.get("name") or "")
     hit = resolve_sofascore_player(
         web_name=str(element.get("web_name") or ""),
@@ -310,16 +343,31 @@ def _sofascore_player_id(
     if hit is None:
         query = " ".join(part for part in (element.get("web_name"), club_name) if part)
         hit = search_sofascore_player(query)
-    resolved = str(hit["playerId"]) if hit and hit.get("playerId") is not None else f"fpl-{element_id}"
-    cache[element_id] = resolved
-    return resolved
+    cache[element_id] = hit
+    if hit and hit.get("playerId") is not None:
+        id_cache[element_id] = str(hit["playerId"])
+    else:
+        id_cache[element_id] = f"fpl-{element_id}"
+    return hit
+
+
+def _sofascore_player_id(
+    element_id: int,
+    element: dict[str, Any],
+    club: dict[str, Any],
+    catalog: dict[str, Any] | None,
+) -> str:
+    hit = _resolve_sofascore_player(element_id, element, club, catalog)
+    if hit and hit.get("playerId") is not None:
+        return str(hit["playerId"])
+    return f"fpl-{element_id}"
 
 
 def _safe_round_overlay(round_number: int, season_id: int | None) -> dict[str, Any]:
     try:
         return fetch_round_overlay(PREMIER_LEAGUE_TOURNAMENT_ID, round_number, season_id=season_id)
     except Exception:
-        return {"ratings": {}, "injuredIds": set()}
+        return {"ratings": {}, "injuredIds": set(), "suspendedIds": set()}
 
 
 def _current_injured_ids(picks: list[PickPayload], catalog: dict[str, Any]) -> set[str]:

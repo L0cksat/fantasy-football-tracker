@@ -23,12 +23,25 @@ from collector.models import (
 
 CLUB_BY_ID = {
     # Premier League
+    "6": "Burnley",
+    "7": "Crystal Palace",
+    "14": "Nottingham Forest",
     "17": "Manchester City",
     "30": "Brighton & Hove Albion",
     "32": "Ipswich Town",
+    "33": "Tottenham Hotspur",
+    "34": "Leeds United",
     "35": "Manchester United",
     "38": "Chelsea",
+    "39": "Newcastle United",
+    "40": "Aston Villa",
+    "41": "Sunderland",
     "42": "Arsenal",
+    "43": "Fulham",
+    "44": "Liverpool FC",
+    "48": "Everton",
+    "50": "Brentford",
+    "60": "AFC Bournemouth",
     "96": "Hull City",
     # LaLiga
     "2814": "Espanyol",
@@ -111,12 +124,27 @@ CLUB_BY_ID = {
 CLUB_BY_CODE = {
     # Premier League
     "ARS": "Arsenal",
+    "AVL": "Aston Villa",
+    "BOU": "AFC Bournemouth",
+    "BRE": "Brentford",
     "BHA": "Brighton & Hove Albion",
+    "BUR": "Burnley",
     "CHE": "Chelsea",
+    "CRY": "Crystal Palace",
+    "EVE": "Everton",
+    "FUL": "Fulham",
     "HUL": "Hull City",
     "IPS": "Ipswich Town",
+    "LEE": "Leeds United",
+    "LIV": "Liverpool FC",
     "MCI": "Manchester City",
     "MUN": "Manchester United",
+    "NEW": "Newcastle United",
+    "NFO": "Nottingham Forest",
+    "SUN": "Sunderland",
+    "TOT": "Tottenham Hotspur",
+    "WHU": "West Ham United",
+    "WOL": "Wolverhampton Wanderers",
     # LaLiga
     "ALA": "Deportivo Alavés",
     "ATM": "Atlético Madrid",
@@ -225,7 +253,11 @@ def resolve_club_name(
     name: Any = None,
     name_code: Any = None,
 ) -> str | None:
-    """Prefer full club names; map SofaScore nameCode / short abbreviations (e.g. BET → Real Betis)."""
+    """Prefer full club names; map SofaScore nameCode / short abbreviations (e.g. BET → Real Betis).
+
+    Full `name` from the API wins over nameCode maps so national sides (ESP → Spain) are not
+    rewritten to club abbreviations that share the same code (ESP → Espanyol).
+    """
     code = str(name_code).strip().upper() if name_code not in (None, "") else ""
     label = str(name).strip() if name not in (None, "") else ""
     if label and re.fullmatch(r"[A-Za-z]{2,4}", label):
@@ -235,11 +267,13 @@ def resolve_club_name(
         mapped = CLUB_BY_ID.get(str(club_id).strip())
         if mapped:
             return mapped
+    if label:
+        return label
     if code:
         mapped = CLUB_BY_CODE.get(code)
         if mapped:
             return mapped
-    return label or (code or None)
+    return code or None
 
 
 def snapshot_from_payload(payload: dict[str, Any], meta: dict[str, Any] | None = None) -> Snapshot:
@@ -356,6 +390,7 @@ def _from_canonical(payload: dict[str, Any]) -> Snapshot:
             rating=_optional_float(pick.get("rating")),
             price=_optional_float(pick.get("price")),
             injured=bool(pick.get("injured")),
+            suspended=bool(pick.get("suspended")),
             breakdown=pick.get("breakdown") or {},
         )
         for pick in payload["picks"]
@@ -399,7 +434,7 @@ def _from_sofascore_squad(payload: dict[str, Any]) -> Snapshot:
                     externalId=str(player_src.get("id") or fantasy_player.get("id") or item.get("id")),
                     name=player_src.get("name") or player_src.get("shortName") or "Unknown",
                     position=normalize_position(
-                        player_src.get("position") or fantasy_player.get("position")
+                        fantasy_player.get("position") or player_src.get("position")
                     ),
                     club=resolve_club_name(
                         club_id=_club_external_id(team_src, item),
@@ -416,6 +451,7 @@ def _from_sofascore_squad(payload: dict[str, Any]) -> Snapshot:
                 rating=rating,
                 price=_optional_float(item.get("price") if item.get("price") is not None else fantasy_player.get("price")),
                 injured=_injured_from_sofascore(item, fantasy_player, player_src),
+                suspended=bool(item.get("suspended") or fantasy_player.get("suspended")),
                 breakdown={"goals": fantasy_player.get("goals"), "assists": fantasy_player.get("assists")},
             )
         )
@@ -526,6 +562,7 @@ def _from_sofascore_like(payload: dict[str, Any]) -> Snapshot:
             rating=_optional_float(item.get("rating")),
             price=_optional_float(item.get("price") or item.get("fantasyPrice")),
             injured=bool(item.get("injured") or player_src.get("injured")),
+            suspended=bool(item.get("suspended") or player_src.get("suspended")),
             breakdown=item.get("stats") or item.get("breakdown") or {},
         )
         picks.append(pick)

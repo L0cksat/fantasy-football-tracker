@@ -117,6 +117,7 @@ public class CompetitionQueryService {
 			SquadPick fromPick = fromByPlayer.get(playerId);
 			SquadPick toPick = toByPlayer.get(playerId);
 			Player player = fromPick != null ? fromPick.getPlayer() : toPick.getPlayer();
+			SquadPick clubPick = toPick != null ? toPick : fromPick;
 			BigDecimal fromPoints = CaptainScoring.effective(
 					pointsOf(fromScores.get(playerId)),
 					fromPick != null && fromPick.isCaptain(),
@@ -130,7 +131,7 @@ public class CompetitionQueryService {
 					player.getName(),
 					PlayerPortraits.url(competition.getSource(), player.getExternalId()),
 					player.getPosition(),
-					player.getClub(),
+					clubOf(clubPick),
 					fromPick != null ? fromPick.getRole() : null,
 					toPick != null ? toPick.getRole() : null,
 					fromPoints,
@@ -208,15 +209,18 @@ public class CompetitionQueryService {
 					PlayerGameweekScore score = scores.get(player.getId());
 					BigDecimal base = score != null ? score.getPoints() : BigDecimal.ZERO;
 					int multiplier = CaptainScoring.multiplier(pick.isCaptain(), tripleCaptain);
+					String club = clubOf(pick);
+					String clubExternalId = clubExternalIdOf(pick);
+					Integer shirtNumber = shirtNumberOf(pick);
 					return new TeamViewResponse.PickView(
 							player.getId(),
 							player.getExternalId(),
 							player.getName(),
 							PlayerPortraits.url(competition.getSource(), player.getExternalId()),
 							player.getPosition(),
-							player.getClub(),
-							ClubCrests.url(competition.getSource(), player.getClubExternalId(), player.getClub()),
-							player.getShirtNumber(),
+							club,
+							ClubCrests.url(competition.getSource(), clubExternalId, club),
+							shirtNumber,
 							pick.getRole(),
 							pick.isCaptain(),
 							pick.isViceCaptain(),
@@ -225,7 +229,8 @@ public class CompetitionQueryService {
 							CaptainScoring.effective(base, pick.isCaptain(), tripleCaptain),
 							score != null ? score.getRating() : null,
 							score != null ? score.getBreakdown() : null,
-							pick.isInjured());
+							pick.isInjured(),
+							pick.isSuspended());
 				})
 				.toList();
 		BigDecimal teamPoints = teamScore != null ? teamScore.getPoints() : BigDecimal.ZERO;
@@ -250,7 +255,7 @@ public class CompetitionQueryService {
 				transferPenalty,
 				pickViews,
 				buildTransfers(competition, team, gameweek),
-				buildTransferMarket(team, gameweek));
+				buildTransferMarket(competition, team, gameweek));
 	}
 
 	private List<TeamViewResponse.TransferView> buildTransfers(
@@ -310,7 +315,21 @@ public class CompetitionQueryService {
 	}
 
 	private TeamViewResponse.TransferView toTransfer(String direction, String source, SquadPick pick) {
-		return toTransfer(direction, source, pick.getPlayer(), pick.getPrice(), null);
+		Player player = pick.getPlayer();
+		String club = clubOf(pick);
+		String clubExternalId = clubExternalIdOf(pick);
+		return new TeamViewResponse.TransferView(
+				direction,
+				player.getId(),
+				player.getExternalId(),
+				player.getName(),
+				PlayerPortraits.url(source, player.getExternalId()),
+				player.getPosition(),
+				club,
+				ClubCrests.url(source, clubExternalId, club),
+				pick.getPrice(),
+				null,
+				TransferChannels.channel(null));
 	}
 
 	private TeamViewResponse.TransferView toTransfer(
@@ -341,13 +360,109 @@ public class CompetitionQueryService {
 				TransferChannels.channel(counterpart));
 	}
 
-	private TeamViewResponse.TransferMarketSummary buildTransferMarket(FantasyTeam team, Gameweek gameweek) {
+	/** Prefer pick-scoped club so club comps and national-team comps stay separate. */
+	private static String clubOf(SquadPick pick) {
+		if (pick == null) {
+			return null;
+		}
+		if (pick.getClub() != null && !pick.getClub().isBlank()) {
+			return pick.getClub();
+		}
+		return pick.getPlayer() != null ? pick.getPlayer().getClub() : null;
+	}
+
+	private static String clubExternalIdOf(SquadPick pick) {
+		if (pick == null) {
+			return null;
+		}
+		if (pick.getClubExternalId() != null && !pick.getClubExternalId().isBlank()) {
+			return pick.getClubExternalId();
+		}
+		return pick.getPlayer() != null ? pick.getPlayer().getClubExternalId() : null;
+	}
+
+	private static Integer shirtNumberOf(SquadPick pick) {
+		if (pick == null) {
+			return null;
+		}
+		if (pick.getShirtNumber() != null) {
+			return pick.getShirtNumber();
+		}
+		return pick.getPlayer() != null ? pick.getPlayer().getShirtNumber() : null;
+	}
+
+	private TeamViewResponse.TransferMarketSummary buildTransferMarket(
+			Competition competition,
+			FantasyTeam team,
+			Gameweek gameweek) {
 		List<GameweekTransfer> all = transferRepository
 				.findByFantasyTeam_IdOrderByGameweek_NumberAscSortOrderAsc(team.getId());
 		List<GameweekTransfer> week = all.stream()
 				.filter(row -> row.getGameweek().getId().equals(gameweek.getId()))
 				.toList();
-		return new TeamViewResponse.TransferMarketSummary(summarizeMarket(week), summarizeMarket(all));
+		return new TeamViewResponse.TransferMarketSummary(
+				summarizeMarket(week),
+				summarizeMarket(all),
+				findMostExpensivePurchase(competition.getSource(), all),
+				findHighestSale(competition.getSource(), all));
+	}
+
+	private TeamViewResponse.TransferHighlight findMostExpensivePurchase(
+			String source,
+			List<GameweekTransfer> rows) {
+		GameweekTransfer best = null;
+		for (GameweekTransfer row : rows) {
+			if (row.getPlayerIn() == null || row.getPriceIn() == null) {
+				continue;
+			}
+			if (best == null || row.getPriceIn().compareTo(best.getPriceIn()) > 0) {
+				best = row;
+			}
+		}
+		if (best == null) {
+			return null;
+		}
+		return toHighlight(source, best.getPlayerIn(), best.getPriceIn(), best.getCounterpart(), best.getGameweek());
+	}
+
+	private TeamViewResponse.TransferHighlight findHighestSale(
+			String source,
+			List<GameweekTransfer> rows) {
+		GameweekTransfer best = null;
+		for (GameweekTransfer row : rows) {
+			if (row.getPlayerOut() == null || row.getPriceOut() == null) {
+				continue;
+			}
+			if (best == null || row.getPriceOut().compareTo(best.getPriceOut()) > 0) {
+				best = row;
+			}
+		}
+		if (best == null) {
+			return null;
+		}
+		return toHighlight(source, best.getPlayerOut(), best.getPriceOut(), best.getCounterpart(), best.getGameweek());
+	}
+
+	private TeamViewResponse.TransferHighlight toHighlight(
+			String source,
+			Player player,
+			BigDecimal price,
+			String counterpart,
+			Gameweek gameweek) {
+		return new TeamViewResponse.TransferHighlight(
+				player.getId(),
+				player.getExternalId(),
+				player.getName(),
+				PlayerPortraits.url(source, player.getExternalId()),
+				player.getPosition(),
+				player.getClub(),
+				ClubCrests.url(source, player.getClubExternalId(), player.getClub()),
+				player.getShirtNumber(),
+				price,
+				counterpart,
+				TransferChannels.channel(counterpart),
+				gameweek != null ? gameweek.getNumber() : null,
+				gameweek != null ? gameweek.getName() : null);
 	}
 
 	private TeamViewResponse.TransferMarketScope summarizeMarket(List<GameweekTransfer> rows) {

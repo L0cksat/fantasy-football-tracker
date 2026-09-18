@@ -111,10 +111,10 @@ public class IngestService {
 				row.setGameweek(gameweek);
 				row.setSortOrder(order++);
 				if (pair.playerIn() != null) {
-					row.setPlayerIn(upsertPlayer(competition.getSource(), pair.playerIn()));
+					row.setPlayerIn(upsertPlayer(competition.getSource(), pair.playerIn(), false));
 				}
 				if (pair.playerOut() != null) {
-					row.setPlayerOut(upsertPlayer(competition.getSource(), pair.playerOut()));
+					row.setPlayerOut(upsertPlayer(competition.getSource(), pair.playerOut(), false));
 				}
 				row.setPriceIn(pair.priceIn());
 				row.setPriceOut(pair.priceOut());
@@ -221,17 +221,25 @@ public class IngestService {
 	}
 
 	private Player upsertPlayer(String source, PickPayload pick) {
-		return upsertPlayer(source, pick.player());
+		return upsertPlayer(source, pick.player(), true);
 	}
 
-	private Player upsertPlayer(String source, PlayerPayload payload) {
+	/**
+	 * @param updatePosition when false (transfer ingest), keep an existing Fantasy position.
+	 *        Transfer XHRs often only carry the SofaScore profile code (M) which would overwrite
+	 *        Fantasy FWD/MID classifications from the squad snapshot.
+	 */
+	private Player upsertPlayer(String source, PlayerPayload payload, boolean updatePosition) {
 		Player player = playerRepository
 				.findBySourceAndExternalId(source, payload.externalId())
 				.orElseGet(Player::new);
+		boolean created = player.getId() == null;
 		player.setSource(source);
 		player.setExternalId(payload.externalId());
 		player.setName(payload.name());
-		player.setPosition(payload.position());
+		if (updatePosition || created || player.getPosition() == null || player.getPosition().isBlank()) {
+			player.setPosition(payload.position());
+		}
 		player.setClub(payload.club());
 		if (payload.clubExternalId() != null && !payload.clubExternalId().isBlank()) {
 			player.setClubExternalId(payload.clubExternalId());
@@ -254,7 +262,16 @@ public class IngestService {
 		squadPick.setViceCaptain(pick.viceCaptain());
 		squadPick.setPrice(pick.price());
 		squadPick.setInjured(pick.injured());
+		squadPick.setSuspended(pick.suspended());
+		// Club / shirt are pick-scoped so club comps and Nations League do not overwrite each other.
+		squadPick.setClub(pick.player().club());
+		squadPick.setClubExternalId(blankToNull(pick.player().clubExternalId()));
+		squadPick.setShirtNumber(pick.player().shirtNumber());
 		squadPickRepository.save(squadPick);
+	}
+
+	private static String blankToNull(String value) {
+		return value == null || value.isBlank() ? null : value;
 	}
 
 	private void upsertPlayerScore(Player player, Gameweek gameweek, PickPayload pick) {

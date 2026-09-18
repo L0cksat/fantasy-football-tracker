@@ -33,7 +33,7 @@ Official LaLiga Fantasy has no website JSON. Copy `collector/templates/laliga-fa
 
 ## `.env` for `pull`
 
-One `SOFASCORE_SESSION` is shared. Premier League uses the unprefixed URLs. Other leagues can use a competition JSON URL only (`SOFASCORE_LALIGA_*`, `SOFASCORE_SERIE_A_COMPETITION_URL`, `SOFASCORE_LIGUE_1_COMPETITION_URL`, `SOFASCORE_BUNDESLIGA_COMPETITION_URL`, `SOFASCORE_CHAMPIONS_LEAGUE_COMPETITION_URL`, `SOFASCORE_EUROPA_LEAGUE_COMPETITION_URL`, `SOFASCORE_MLS_COMPETITION_URL`, `SOFASCORE_BRASILEIRAO_COMPETITION_URL`) — squad and transfers URLs are derived. `pull` with no `--competition` fetches every configured league.
+One `SOFASCORE_SESSION` is shared. Premier League uses the unprefixed URLs. Other leagues can use a competition JSON URL only (`SOFASCORE_LALIGA_*`, `SOFASCORE_SERIE_A_COMPETITION_URL`, `SOFASCORE_LIGUE_1_COMPETITION_URL`, `SOFASCORE_BUNDESLIGA_COMPETITION_URL`, `SOFASCORE_CHAMPIONS_LEAGUE_COMPETITION_URL`, `SOFASCORE_EUROPA_LEAGUE_COMPETITION_URL`, `SOFASCORE_NATIONS_LEAGUE_COMPETITION_URL`, `SOFASCORE_MLS_COMPETITION_URL`, `SOFASCORE_BRASILEIRAO_COMPETITION_URL`) — squad and transfers URLs are derived. A concrete `SOFASCORE_NATIONS_LEAGUE_SQUAD_URL` (`/round/{id}/squad`) is enough for a first Nations League ingest. `pull` with no `--competition` fetches every configured league.
 
 Set these from Firefox (logged into SofaScore Fantasy, Persist Logs + XHR):
 

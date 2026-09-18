@@ -196,6 +196,24 @@ select {
   font-size: 1.4rem;
 }
 
+.score-extremes {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.score-extremes em {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--ft-muted);
+  font-style: normal;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 520px) {
+  .score-extremes {
+    grid-template-columns: 1fr;
+  }
+}
+
 .panel {
   position: relative;
   overflow: hidden;
@@ -410,6 +428,34 @@ select {
   text-align: center;
 }
 
+.transfer-highlights {
+  margin: 0 0 1.25rem;
+}
+
+.transfer-highlights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.transfer-highlight {
+  margin: 0;
+}
+
+.transfer-highlight .deal-meta {
+  display: block;
+  margin-top: 0.2rem;
+  color: rgba(238, 246, 232, 0.7);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 720px) {
+  .transfer-highlights-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .team-title {
   display: flex;
   align-items: center;
@@ -531,6 +577,12 @@ th {
   background: transparent;
   color: #f0c36a;
   border: 1px solid #f0c36a;
+}
+
+.chip-suspended {
+  background: transparent;
+  color: #e88b8b;
+  border: 1px solid #e88b8b;
 }
 
 .market-cards {

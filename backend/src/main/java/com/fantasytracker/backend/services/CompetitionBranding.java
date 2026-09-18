@@ -19,6 +19,7 @@ public final class CompetitionBranding {
 			Map.entry("35", new Country("Germany", "30")),
 			Map.entry("7", new Country("Europe", "1465")),
 			Map.entry("679", new Country("Europe", "1465")),
+			Map.entry("10783", new Country("Europe", "1465")),
 			Map.entry("242", new Country("USA", "26")),
 			Map.entry("325", new Country("Brazil", "13")),
 			Map.entry("1044", new Country("England", "1")));
@@ -31,6 +32,7 @@ public final class CompetitionBranding {
 			Map.entry("35", new Colors("#e2080e", "#8e0902")),
 			Map.entry("7", new Colors("#062b5c", "#086aab")),
 			Map.entry("679", new Colors("#3d1a08", "#f37d25")),
+			Map.entry("10783", new Colors("#3a4179", "#e5a422")),
 			Map.entry("242", new Colors("#e2231a", "#062f69")),
 			Map.entry("325", new Colors("#C7FF00", "#969696")),
 			Map.entry("1044", new Colors("#06121e", "#00c2cb")));
