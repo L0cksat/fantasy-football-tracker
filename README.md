@@ -10,7 +10,7 @@
 
 Personal SofaScore Fantasy tracker: Python collector → Spring Boot + MySQL → Angular dashboard.
 
-The dashboard shows your squad, captain chips, club crests, player portraits, week-vs-week compare, season totals, and transfers.
+The dashboard shows your squad, captain chips, club crests, player portraits, week-vs-week compare, season totals, transfers, **Injured** / **Suspended** status chips, and season high/low gameweek cards. Official LaLiga Fantasy also highlights your most expensive purchase and highest sale.
 
 ## Screenshots
 
@@ -25,6 +25,18 @@ Competition dashboard (squad, totals, player of the week):
 Players of the week marquee (GSAP — pauses on hover):
 
 ![Players of the week marquee](docs/screenshots/potw-marquee.gif)
+
+Injured / Suspended chips on the squad (per gameweek, from SofaScore lineups):
+
+![Squad status badges](docs/screenshots/squad-status-badges.png)
+
+Highest and lowest scoring gameweeks (season extremes, beside Compare weeks):
+
+![Highest and lowest scoring gameweeks](docs/screenshots/score-extremes.png)
+
+Official LaLiga — most expensive purchase and highest sale (POTW-style cards in Transfers):
+
+![LaLiga transfer highlights](docs/screenshots/laliga-transfer-highlights.png)
 
 ## Layout
 
@@ -83,6 +95,9 @@ The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull
 - Portraits: SofaScore `https://img.sofascore.com/api/v1/player/{id}/image` (official FPL maps names onto the Premier League season player list; official WSL maps onto unique-tournament 1044)
 - Competition logos: `https://img.sofascore.com/api/v1/unique-tournament/{id}/image` (same endpoint the main SofaScore tournament page uses; Champions League is 7, Europa League is 679, Nations League is 10783, MLS is 242, Brasileirão is 325, WSL is 1044)
 - Transfers: official SofaScore transfers JSON (paired in/out per round). Squad-diff is only a fallback if a week has no official rows.
+- **Injured / Suspended:** per-GW from SofaScore event lineups `missingPlayers` (injury vs yellow accumulation / red card / unavailable). Stored on `squad_pick` and shown as chips next to the player name.
+- **Season extremes:** Highest / Lowest Scoring Gameweek cards are derived from `GET …/totals` on the competition page.
+- **Official LaLiga deal highlights:** season max `priceIn` / `priceOut` from `gameweek_transfer` (Most expensive player purchase / Highest player sale).
 
 ## API
 

@@ -96,6 +96,8 @@ Why it exists: one read model for the homepage so Angular does not assemble bran
 | **POTW** | Backend `HomePageService` | Per competition: highest captain-effective points in that competition’s resolved latest GW (**your squad only**). |
 | **MVP** | Frontend `HomeComponent.topPlayerOfTheWeek` | Highest `points` across the returned `playersOfTheWeek` list (cross-competition). |
 | **GW card** | Frontend `DashboardComponent.playerOfTheWeek` | Highest `pick.points` in the **selected** competition gameweek. |
+| **Season high / low GW** | Frontend from `totals` | Max / min team points across scored weeks (cards between squad and Compare). |
+| **LaLiga buy / sale cards** | `transferMarket.mostExpensivePurchase` / `highestSale` | Season max `priceIn` / `priceOut` across official transfer rows. |
 
 ### `IngestService`
 
@@ -106,7 +108,7 @@ Why it exists: one upsert path for SofaScore, FPL, WSL, and Excel so the dashboa
 - **`removeSeedPlayers`** — cleanup for `seed-*` ids.
 - **`findAllCompetitions`** — used by tests/tooling.
 - **`upsertCompetition` / `upsertGameweek` / `upsertTeam` / `upsertPlayer` / `upsertPick` / `upsertPlayerScore` / `upsertTeamScore`** — idempotent writes keyed by source+external id (or team+player+week).
-- **`upsertPick`** — also writes **pick-scoped** `club`, `clubExternalId`, `shirtNumber` from the payload so club comps and Nations League do not overwrite each other on the shared `Player`.
+- **`upsertPick`** — also writes **pick-scoped** `club`, `clubExternalId`, `shirtNumber`, plus `injured` / `suspended` from the snapshot payload.
 - **`upsertGameweekForTransfers` / `applyTransferPenalty`** — transfers can arrive for a week that has no squad yet.
 - **`removeStalePicks`** — a new XI replaces last week’s leftover rows.
 - **`toJson` / `blankToNull`** — stores pick `breakdown` as JSON text; normalises empty club ids.
@@ -119,11 +121,12 @@ Why it exists: GET payloads include derived media (crest, portrait, colours) and
 - **`teamView` / `gameweekView`** — same builder; `teamView` picks latest week if unspecified.
 - **`compare`** — players in either week; points use captain multiplier per week’s triple-captain flag; club via `clubOf`.
 - **`totals`** — ordered week scores + season total.
-- **`buildTeamView`** — starters/bench, portraits, crests (pick-scoped club), transfers, transfer-market summary.
+- **`buildTeamView`** — starters/bench, portraits, crests (pick-scoped club), transfers, transfer-market summary (incl. LaLiga season extremes).
 - **`buildTransfers`** — stored `gameweek_transfer` rows if present; otherwise **squad-diff** against the previous week (WSL and gaps in official feeds).
 - **`toTransfer` (overloads)** — maps a player + price + counterpart into the dashboard transfer card; the `SquadPick` overload uses pick-scoped club.
 - **`clubOf` / `clubExternalIdOf` / `shirtNumberOf`** — prefer pick fields, else `Player` (legacy rows before migration).
 - **`buildTransferMarket` / `summarizeMarket` / `toCounterpartGroups` / `Accumulator`** — LaLiga market vs release-clause totals (week + season).
+- **`findMostExpensivePurchase` / `findHighestSale` / `toHighlight`** — season-wide max buy / max sale from `gameweek_transfer` prices for POTW-style cards on Official LaLiga.
 - **`previousGameweek` / `tripleCaptain` / `pickComparator` / `positionOrder`** — GK→DEF→MID→FWD, starters before bench.
 - **`indexPicks` / `indexScores` / `pointsOf` / `resolveGameweek` / `requireCompetition` / `requireTeam` / `requireGameweek`** — lookups that 404 as 404-style failures.
 
@@ -179,7 +182,7 @@ Numeric SofaScore player id → `img.sofascore.com/api/v1/player/{id}/image`. No
 
 ### Entities (JPA)
 
-Lombok `@Data`. Tables match `sql/schema.sql`. Migration for pick club columns: `sql/migrate-squad-pick-club-context.sql` (also applied via `spring.jpa.hibernate.ddl-auto=update` locally).
+Lombok `@Data`. Tables match `sql/schema.sql`. Migrations: `sql/migrate-squad-pick-club-context.sql`, `sql/migrate-squad-pick-suspended.sql` (also applied via `spring.jpa.hibernate.ddl-auto=update` locally).
 
 | Entity | Role |
 |---|---|
@@ -187,7 +190,7 @@ Lombok `@Data`. Tables match `sql/schema.sql`. Migration for pick club columns: 
 | **`Gameweek`** | Week **row** (`number`, `status`, dates). |
 | **`FantasyTeam`** | One team per competition. |
 | **`Player`** | Unique `(source, externalId)`; shared identity (name, portrait id). Club fields are a soft cache / transfer fallback. |
-| **`SquadPick`** | Role, captain/VC, price, injured; **plus pick-scoped `club`, `clubExternalId`, `shirtNumber`**. |
+| **`SquadPick`** | Role, captain/VC, price, **`injured`**, **`suspended`**; **plus pick-scoped `club`, `clubExternalId`, `shirtNumber`**. |
 | **`PlayerGameweekScore`** | Raw `points`, optional `rating` + `breakdown`. |
 | **`TeamGameweekScore`** | Week total, triple-captain flag, transfer penalty. |
 | **`GameweekTransfer`** | Nullable in/out players, prices, counterpart, channel, sort order. |
@@ -211,13 +214,13 @@ Spring Data query methods — no custom SQL.
 - **`TransfersRequest`** (+ round + pair) — ingest transfers; in/out may be null for LaLiga.
 - **`HomePageResponse`** — `defaultCompetitionId` / `defaultCompetitionSlug`, `LeagueBrand` list, `PlayerOfTheWeek` list.
 - **`CompetitionResponse`** — list item including branding URLs/colours.
-- **`TeamViewResponse`** — dashboard squad: picks, transfers, transfer-market summary, captain display fields (`points`, `basePoints`, `captainMultiplier`).
+- **`TeamViewResponse`** — dashboard squad: picks (`injured` / `suspended`), transfers, transfer-market summary (`mostExpensivePurchase` / `highestSale` highlights), captain display fields (`points`, `basePoints`, `captainMultiplier`).
 - **`CompareResponse` / `PlayerDelta`**
 - **`TotalsResponse` / `GameweekTotal`**
 
 ### Tests
 
-- **`ApiSliceTest`** — MockMvc slice: SofaScore chips, LaLiga market, FPL badges, WSL branding (tournament 1044), captain display.
+- **`ApiSliceTest`** — MockMvc slice: SofaScore chips, LaLiga market + transfer highlights, FPL badges, WSL branding (tournament 1044), captain display, injured/suspended flags.
 - **`BackendApplicationTests`** — context load.
 
 ---
@@ -250,7 +253,7 @@ Thin GET client at `http://localhost:8080/api/v1/competitions`. Created so the U
 
 ### `tracker.ts` models
 
-TypeScript mirrors of GET JSON: `HomePage`, `LeagueBrand`, `PlayerOfTheWeek`, `Competition`, `TeamView`, `PickView`, `TransferView`, `TransferMarket*`, `CompareView`, `PlayerDelta`, `TotalsView`.
+TypeScript mirrors of GET JSON: `HomePage`, `LeagueBrand`, `PlayerOfTheWeek`, `Competition`, `TeamView`, `PickView` (`injured` / `suspended`), `TransferView`, `TransferHighlight`, `TransferMarket*` (incl. season extremes), `CompareView`, `PlayerDelta`, `TotalsView`.
 
 ### `HomeComponent` — landing page
 
@@ -295,7 +298,7 @@ Template: `home.html` — wash, logo field, hero, MVP `ng-template` card, marque
 
 ### `DashboardComponent` — leagues page
 
-Why: one page for every league — branding, XI, bench/squad, GW standout card, transfers, compare, totals.
+Why: one page for every league — branding, XI, bench/squad, GW standout card, status chips, season high/low weeks, transfers (LaLiga deal cards), compare, totals.
 
 **Signals:** `competitions`, `selectedId`, `gameweek`, `fromGw`, `toGw`, `teamView`, `compareView`, `totalsView`, `error`, `loading`.
 
@@ -308,6 +311,8 @@ Why: one page for every league — branding, XI, bench/squad, GW standout card, 
 - **`reserveHeading`** — “Squad” vs “Bench”.
 - **`showTransferCounterpart`** — LaLiga or any move with a counterpart.
 - **`playerOfTheWeek`** — max `pick.points` in the current `teamView` (GW card).
+- **`highestScoringGameweek` / `lowestScoringGameweek`** — season extremes from `totalsView.gameweeks`.
+- **`mostExpensivePurchase` / `highestPlayerSale`** — Official LaLiga only; from `transferMarket` season highlights.
 
 **Methods**
 
@@ -315,7 +320,8 @@ Why: one page for every league — branding, XI, bench/squad, GW standout card, 
 - **`selectCompetition`** — latest week, compare from first→latest, refresh all three GETs.
 - **`onCompetitionChange` / `onGameweekChange` / `onCompareChange`** — template bindings.
 - **`transferLabel` / `priceFormat` / `counterpartLabel` / `hasMarketDeals`** — LaLiga market wording and prices.
-- **`shirtLabel`** — shirt number or `—` for GW POTW card.
+- **`shirtLabel` / `transferHighlightShirt` / `transferHighlightMeta`** — shirt / GW+counterpart for POTW-style transfer cards.
+- **`isInjured` / `isSuspended`** — status chips on squad rows.
 - **`hideImage`** — hide broken crest/portrait.
 - **`signed`** — `+n` / `n` for compare deltas.
 - **`refreshAll` / `loadTeam` / `loadCompare` / `loadTotals`** — HTTP; errors set `error`.
@@ -329,6 +335,9 @@ Same visual language as homepage cards, scoped under the competition view:
 | `.gw-potw`, `.gw-potw-head` | Centered “Player of the week” block above the squad. |
 | `.potw-card` (+ nested portrait / crest / copy) | Card using `--potw-primary` / `--potw-secondary` from the selected competition. |
 | `.potw-meta`, `.potw-comp-logo`, `.potw-comp-name` | Competition header on the GW card. |
+| `.chip-injured` / `.chip-suspended` | Amber / red outline chips next to player names. |
+| `.score-extremes` | Two-column Season-total-style cards for best/worst GW. |
+| `.transfer-highlights`, `.transfer-highlights-grid` | Side-by-side LaLiga purchase/sale POTW cards in Transfers. |
 
 Also: `.page-brand`, `.page-brand-fpl`, `.panel-head-branded`, FPL neon overlays — competition header theming (not POTW-specific).
 
@@ -350,7 +359,7 @@ Package `collector`, CLI `python -m collector`. Loads repo-root then `collector/
 
 ### Canonical models (`models.py`)
 
-- **`PlayerPayload` / `PickPayload` / `Snapshot`** — POST `/ingest/snapshots`. `Snapshot.to_dict` omits null team points.
+- **`PlayerPayload` / `PickPayload` / `Snapshot`** — POST `/ingest/snapshots`. `PickPayload` carries `injured` / `suspended`. `Snapshot.to_dict` omits null team points.
 - **`TransferPlayer` / `TransferPair` / `TransferRound` / `TransfersBatch`** — POST `/ingest/transfers`.
 - **`FantasyAdapter`** — old interface (`fetch_competitions` / `fetch_squad` / `fetch_gameweek_scores`); SofaScore and file import still implement it. FPL/WSL use dedicated `pull_*` functions instead.
 
@@ -365,7 +374,7 @@ Package `collector`, CLI `python -m collector`. Loads repo-root then `collector/
 - **`complete_target`** — from a Fantasy `…/competition/{id}` URL, derive `/transfers` and `/round/{roundId}/squad`.
 - **`_target_from_prefix`** — env → `PullTarget`.
 - **`adapter_for_target`** — `SofaScoreAdapter` for that target.
-- **`run_pull`** — meta + rounds → `currentRound.id` (or `--gameweek` sequence) → squad → injury overlay → optional transfers → POST (unless `--dry-run`).
+- **`run_pull`** — meta + rounds → `currentRound.id` (or `--gameweek` sequence) → squad → injury/suspension overlay → optional transfers → POST (unless `--dry-run`).
 - **`_save_json`** — cache dump.
 
 ### SofaScore Fantasy adapter (`adapters/sofascore.py`)
@@ -393,11 +402,13 @@ Why: replay **your** Network JSON URLs with your cookie; impersonate Chrome (`cu
 Uses **known** SofaScore paths only: `unique-tournament/{id}/seasons`, `…/season/{id}/players`, `…/events/round/{n}`, `event/{id}/lineups`, `team/{id}/players`.
 
 - **`current_season_id`** — first season in the list (current).
-- **`overlay_from_lineups`** — ratings + injured from `missingPlayers` (not doubtful).
-- **`fetch_round_overlay`** — all events in a round.
-- **`fetch_injured_player_ids`** — live `injury.status == out`.
-- **`apply_round_overlay` / `annotate_snapshot_injuries`**
-- **`_injured_for_team` / `_is_injured_missing` / `_player_id` / `_optional_int`**
+- **`overlay_from_lineups`** — ratings + **injured** + **suspended** ids from `missingPlayers` (skips `doubtful`). Suspension wins over injury when both could match.
+- **`fetch_round_overlay`** — all events in a round (`injuredIds` / `suspendedIds`).
+- **`fetch_injured_player_ids`** — live `injury.status == out` (upcoming/live weeks).
+- **`apply_round_overlay` / `annotate_snapshot_injuries`** — also sets `pick.suspended` (clears `injured` when suspended).
+- **`_is_suspended_missing`** — SofaScore reasons **3** (FA/improper conduct), **11** (yellow accumulation), **12** (yellow/red), **13** (red), plus description tokens (`suspension`, `unavail`, …).
+- **`_is_injured_missing`** — injury-like missing rows that are **not** suspensions (reason `1` / `"injur…"`).
+- **`_injured_for_team` / `_player_id` / `_optional_int`**
 
 ### Player directory (`adapters/sofascore_directory.py`)
 
@@ -480,4 +491,4 @@ Never log tokens. HTTP 401 on SofaScore → refresh cookie. HTTP 401 on WSL → 
 ## Docs / screenshots
 
 - **`docs/TECHNICAL.md`** — this file.
-- **`docs/screenshots/`** — README media (`home.png`, `leagues.png`, `potw-marquee.gif`).
+- **`docs/screenshots/`** — README media (`home.png`, `leagues.png`, `potw-marquee.gif`, `squad-status-badges.png`, `score-extremes.png`, `laliga-transfer-highlights.png`).
