@@ -45,7 +45,8 @@ public record SnapshotRequest(
 			@NotBlank String name,
 			String position,
 			String club,
-			String clubExternalId) {
+			String clubExternalId,
+			Integer shirtNumber) {
 	}
 
 	public record PickPayload(

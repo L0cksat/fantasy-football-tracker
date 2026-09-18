@@ -22,6 +22,7 @@ from collector.models import (
 )
 
 CLUB_BY_ID = {
+    # Premier League
     "17": "Manchester City",
     "30": "Brighton & Hove Albion",
     "32": "Ipswich Town",
@@ -29,8 +30,86 @@ CLUB_BY_ID = {
     "38": "Chelsea",
     "42": "Arsenal",
     "96": "Hull City",
+    # LaLiga
+    "2814": "Espanyol",
+    "2816": "Real Betis",
+    "2817": "FC Barcelona",
+    "2818": "Rayo Vallecano",
+    "2819": "Villarreal",
+    "2820": "Osasuna",
+    "2821": "Celta Vigo",
+    "2824": "Real Sociedad",
+    "2825": "Athletic Club",
+    "2828": "Valencia",
+    "2829": "Real Madrid",
+    "2830": "Málaga",
+    "2832": "Deportivo de La Coruña",
+    "2833": "Sevilla",
+    "2835": "Racing Santander",
+    "2836": "Atlético Madrid",
+    "2846": "Elche",
+    "2849": "Levante",
+    "2859": "Getafe",
+    "2885": "Deportivo Alavés",
+    # Ligue 1
+    "1641": "Olympique de Marseille",
+    "1643": "Lille",
+    "1644": "Paris Saint-Germain",
+    "1646": "Auxerre",
+    "1648": "RC Lens",
+    "1649": "Olympique Lyonnais",
+    "1653": "AS Monaco",
+    "1658": "Stade Rennais",
+    "1659": "RC Strasbourg",
+    "1661": "Nice",
+    "1681": "Toulouse",
+    "6070": "Paris FC",
+    # Serie A
+    "2685": "Bologna",
+    "2686": "Atalanta",
+    "2687": "Juventus",
+    "2689": "Lecce",
+    "2692": "AC Milan",
+    "2693": "Fiorentina",
+    "2695": "Udinese",
+    "2697": "Inter",
+    "2702": "AS Roma",
+    "2704": "Como",
+    "2714": "SSC Napoli",
+    "2793": "Sassuolo",
+    "2801": "Frosinone",
+    # MLS
+    "2508": "Houston Dynamo",
+    "2510": "Colorado Rapids",
+    "2511": "New England Revolution",
+    "2512": "FC Dallas",
+    "2513": "LA Galaxy",
+    "7080": "Toronto FC",
+    "21825": "San Jose Earthquakes",
+    "52237": "Orlando City SC",
+    "187643": "New York City FC",
+    "274650": "Los Angeles FC",
+    "337602": "Inter Miami CF",
+    "337612": "Nashville SC",
+    "404108": "Charlotte FC",
+    "1043961": "San Diego FC",
+    # Brasileirão
+    "1954": "Cruzeiro",
+    "1955": "Bahia",
+    "1961": "Fluminense",
+    "1962": "Vitória",
+    "1963": "Palmeiras",
+    "1966": "Internacional",
+    "1967": "Athletico",
+    "1974": "Vasco da Gama",
+    "1977": "Atlético Mineiro",
+    "1981": "São Paulo",
+    "1982": "Coritiba",
+    "1999": "Red Bull Bragantino",
+    "5981": "Flamengo",
 }
 CLUB_BY_CODE = {
+    # Premier League
     "ARS": "Arsenal",
     "BHA": "Brighton & Hove Albion",
     "CHE": "Chelsea",
@@ -38,6 +117,82 @@ CLUB_BY_CODE = {
     "IPS": "Ipswich Town",
     "MCI": "Manchester City",
     "MUN": "Manchester United",
+    # LaLiga
+    "ALA": "Deportivo Alavés",
+    "ATM": "Atlético Madrid",
+    "ATH": "Athletic Club",
+    "BAR": "FC Barcelona",
+    "BET": "Real Betis",
+    "CEL": "Celta Vigo",
+    "DEP": "Deportivo de La Coruña",
+    "ELC": "Elche",
+    "ESP": "Espanyol",
+    "GET": "Getafe",
+    "LEV": "Levante",
+    "MAL": "Málaga",
+    "OSA": "Osasuna",
+    "RAY": "Rayo Vallecano",
+    "RMA": "Real Madrid",
+    "RSO": "Real Sociedad",
+    "SAN": "Racing Santander",
+    "SEV": "Sevilla",
+    "VAL": "Valencia",
+    "VIL": "Villarreal",
+    # Ligue 1
+    "AJA": "Auxerre",
+    "ASM": "AS Monaco",
+    "LIL": "Lille",
+    "OGC": "Nice",
+    "OL": "Olympique Lyonnais",
+    "OM": "Olympique de Marseille",
+    "PFC": "Paris FC",
+    "PSG": "Paris Saint-Germain",
+    "RCL": "RC Lens",
+    "SR": "Stade Rennais",
+    "STR": "RC Strasbourg",
+    "TFC": "Toulouse",
+    # Serie A
+    "ACM": "AC Milan",
+    "ASR": "AS Roma",
+    "ATA": "Atalanta",
+    "BOL": "Bologna",
+    "COM": "Como",
+    "FIO": "Fiorentina",
+    "FRO": "Frosinone",
+    "INT": "Inter",
+    "JUV": "Juventus",
+    "LEC": "Lecce",
+    "NAP": "SSC Napoli",
+    "SAS": "Sassuolo",
+    "UDI": "Udinese",
+    # MLS
+    "CLT": "Charlotte FC",
+    "COL": "Colorado Rapids",
+    "DAL": "FC Dallas",
+    "HOU": "Houston Dynamo",
+    "LA": "LA Galaxy",
+    "LAFC": "Los Angeles FC",
+    "MIA": "Inter Miami CF",
+    "NE": "New England Revolution",
+    "NSH": "Nashville SC",
+    "NYC": "New York City FC",
+    "ORL": "Orlando City SC",
+    "SD": "San Diego FC",
+    "SJ": "San Jose Earthquakes",
+    "TOR": "Toronto FC",
+    # Brasileirão (INT left to Serie A Inter; Internacional resolves via club id 1966)
+    "BAH": "Bahia",
+    "BRA": "Red Bull Bragantino",
+    "CAM": "Atlético Mineiro",
+    "CAP": "Athletico",
+    "CFC": "Coritiba",
+    "CRU": "Cruzeiro",
+    "FLA": "Flamengo",
+    "FLU": "Fluminense",
+    "PAL": "Palmeiras",
+    "SPA": "São Paulo",
+    "VAS": "Vasco da Gama",
+    "VIT": "Vitória",
 }
 
 POSITION_MAP = {
@@ -62,6 +217,29 @@ def normalize_position(value: str | None) -> str | None:
     if not value:
         return None
     return POSITION_MAP.get(value.strip().upper(), value.strip().upper())
+
+
+def resolve_club_name(
+    *,
+    club_id: str | None = None,
+    name: Any = None,
+    name_code: Any = None,
+) -> str | None:
+    """Prefer full club names; map SofaScore nameCode / short abbreviations (e.g. BET → Real Betis)."""
+    code = str(name_code).strip().upper() if name_code not in (None, "") else ""
+    label = str(name).strip() if name not in (None, "") else ""
+    if label and re.fullmatch(r"[A-Za-z]{2,4}", label):
+        code = label.upper()
+        label = ""
+    if club_id:
+        mapped = CLUB_BY_ID.get(str(club_id).strip())
+        if mapped:
+            return mapped
+    if code:
+        mapped = CLUB_BY_CODE.get(code)
+        if mapped:
+            return mapped
+    return label or (code or None)
 
 
 def snapshot_from_payload(payload: dict[str, Any], meta: dict[str, Any] | None = None) -> Snapshot:
@@ -161,7 +339,7 @@ def _transfer_player(player_src: dict[str, Any], price: Any, team_id: Any, team_
         externalId=str(player_src.get("id") or ""),
         name=player_src.get("name") or player_src.get("shortName") or "Unknown",
         position=normalize_position(player_src.get("position")),
-        club=CLUB_BY_ID.get(club_id or "") or CLUB_BY_CODE.get(str(team_code or "").upper()) or team_code,
+        club=resolve_club_name(club_id=club_id, name=None, name_code=team_code),
         clubExternalId=club_id,
         price=_optional_float(price),
     )
@@ -223,8 +401,13 @@ def _from_sofascore_squad(payload: dict[str, Any]) -> Snapshot:
                     position=normalize_position(
                         player_src.get("position") or fantasy_player.get("position")
                     ),
-                    club=team_src.get("name") if isinstance(team_src, dict) else None,
+                    club=resolve_club_name(
+                        club_id=_club_external_id(team_src, item),
+                        name=team_src.get("name") if isinstance(team_src, dict) else None,
+                        name_code=team_src.get("nameCode") if isinstance(team_src, dict) else None,
+                    ),
                     clubExternalId=_club_external_id(team_src, item),
+                    shirtNumber=_optional_int(player_src.get("jerseyNumber") or player_src.get("shirtNumber")),
                 ),
                 role="bench" if item.get("substitute") else "starter",
                 points=points,
@@ -389,6 +572,15 @@ def _optional_float(value: Any) -> float | None:
     if value is None or value == "":
         return None
     return float(value)
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
 
 
 class SofaScoreSessionError(RuntimeError):

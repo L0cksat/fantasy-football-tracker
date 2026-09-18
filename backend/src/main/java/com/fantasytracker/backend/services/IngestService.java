@@ -236,6 +236,9 @@ public class IngestService {
 		if (payload.clubExternalId() != null && !payload.clubExternalId().isBlank()) {
 			player.setClubExternalId(payload.clubExternalId());
 		}
+		if (payload.shirtNumber() != null) {
+			player.setShirtNumber(payload.shirtNumber());
+		}
 		return playerRepository.save(player);
 	}
 

@@ -1,17 +1,20 @@
-import { DecimalPipe, NgClass } from '@angular/common';
+import { DecimalPipe, NgClass, NgStyle } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CompareView, Competition, PickView, TeamView, TotalsView } from '../../models/tracker';
 import { CompetitionService } from '../../services/competition';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [DecimalPipe, FormsModule, NgClass],
+  imports: [DecimalPipe, FormsModule, NgClass, NgStyle, RouterLink],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
 export class DashboardComponent {
   private readonly competitionService = inject(CompetitionService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly competitions = signal<Competition[]>([]);
   readonly selectedId = signal<number | null>(null);
@@ -62,6 +65,15 @@ export class DashboardComponent {
       (this.teamView()?.transfers ?? []).some((move) => !!move.counterpart),
   );
 
+  /** Top point scorer in the selected competition gameweek (your squad). */
+  readonly playerOfTheWeek = computed(() => {
+    const picks = this.teamView()?.picks ?? [];
+    if (!picks.length) {
+      return null;
+    }
+    return picks.reduce((best, pick) => (pick.points > best.points ? pick : best));
+  });
+
   transferLabel(direction: string): string {
     if (this.isOfficialLaLiga()) {
       return direction === 'in' ? 'Bought' : 'Sold';
@@ -102,13 +114,49 @@ export class DashboardComponent {
   }
 
   constructor() {
+    this.reloadCompetitions();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', () => this.refreshCompetitionList());
+    }
+  }
+
+  /** Refresh gameweek lists after an ingest without resetting the open week. */
+  private refreshCompetitionList(): void {
+    const current = this.selectedId();
+    this.competitionService.getCompetitions().subscribe({
+      next: (competitions) => {
+        this.competitions.set(competitions);
+        if (current == null) {
+          return;
+        }
+        const selected = competitions.find((item) => item.id === current);
+        const weeks = selected?.gameweeks ?? [];
+        const open = this.gameweek();
+        if (open != null && weeks.includes(open)) {
+          return;
+        }
+        if (weeks.length) {
+          this.selectCompetition(current, false);
+        }
+      },
+    });
+  }
+
+  private reloadCompetitions(): void {
     this.competitionService.getCompetitions().subscribe({
       next: (competitions) => {
         this.competitions.set(competitions);
         this.loading.set(false);
-        if (competitions.length > 0) {
-          this.selectCompetition(competitions[0].id);
+        if (!competitions.length) {
+          return;
         }
+        const requested = Number(this.route.snapshot.queryParamMap.get('competition'));
+        const byQuery = Number.isFinite(requested)
+          ? competitions.find((item) => item.id === requested)
+          : null;
+        const bySlug = competitions.find((item) => item.slug === 'premier-league');
+        const initial = byQuery ?? bySlug ?? competitions[0];
+        this.selectCompetition(initial.id, false);
       },
       error: () => {
         this.loading.set(false);
@@ -117,15 +165,41 @@ export class DashboardComponent {
     });
   }
 
-  selectCompetition(id: number): void {
+  selectCompetition(id: number, syncRoute = true): void {
     const competition = this.competitions().find((item) => item.id === id);
     this.selectedId.set(id);
+    if (syncRoute) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { competition: id },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
     const weeks = competition?.gameweeks ?? [];
     const latest = weeks.length ? weeks[weeks.length - 1] : 1;
     this.gameweek.set(latest);
     this.fromGw.set(weeks[0] ?? 1);
     this.toGw.set(latest);
-    this.refreshAll();
+    // Prefer the latest week that already has a score (skip empty upcoming shells
+    // created only by transfers, e.g. Official LaLiga GW7).
+    this.competitionService.totals(id).subscribe({
+      next: (totals: TotalsView) => {
+        if (this.selectedId() !== id) {
+          return;
+        }
+        const scored = totals.gameweeks.map((week: { number: number }) => week.number);
+        if (scored.length) {
+          const latestScored = scored[scored.length - 1];
+          this.gameweek.set(latestScored);
+          this.toGw.set(latestScored);
+        }
+        this.totalsView.set(totals);
+        this.loadTeam();
+        this.loadCompare();
+      },
+      error: () => this.refreshAll(),
+    });
   }
 
   onCompetitionChange(raw: string | number): void {
@@ -133,7 +207,7 @@ export class DashboardComponent {
     if (id == null) {
       return;
     }
-    this.selectCompetition(id);
+    this.selectCompetition(id, true);
   }
 
   onGameweekChange(raw: string | number): void {
@@ -178,6 +252,10 @@ export class DashboardComponent {
 
   hideImage(event: Event): void {
     (event.target as HTMLImageElement).style.visibility = 'hidden';
+  }
+
+  shirtLabel(pick: PickView): string {
+    return pick.shirtNumber != null ? String(pick.shirtNumber) : '—';
   }
 
   signed(value: number | null | undefined): string {

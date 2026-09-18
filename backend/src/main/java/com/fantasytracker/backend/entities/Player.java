@@ -34,4 +34,7 @@ public class Player {
 
 	@Column(name = "club_external_id", length = 50)
 	private String clubExternalId;
+
+	@Column(name = "shirt_number")
+	private Integer shirtNumber;
 }

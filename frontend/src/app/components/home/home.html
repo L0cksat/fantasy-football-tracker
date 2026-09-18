@@ -1,0 +1,132 @@
+<section class="home" [style.--home-mix]="colorMix()">
+  <div class="home-wash" aria-hidden="true"></div>
+
+  @if (home(); as page) {
+    <div class="home-logos" aria-hidden="true">
+      @for (brand of page.leagueBrands; track brand.brandKey; let i = $index) {
+        <img
+          class="home-logo"
+          [ngClass]="'home-logo-' + i"
+          [src]="brand.logoDarkUrl || brand.logoUrl || ''"
+          [alt]=""
+          (error)="hideImage($event)"
+        />
+      }
+    </div>
+  }
+
+  <div class="home-content">
+    <header class="home-hero">
+      <p class="eyebrow">Fantasy Football tracker</p>
+      <h1>Your leagues, weeks, and points</h1>
+      <p class="lede">
+        One place for every competition you track — jump into your squads, weekly scores, and season totals.
+      </p>
+
+      @if (error(); as message) {
+        <p class="banner">{{ message }}</p>
+      }
+      @if (loading()) {
+        <p class="muted">Loading homepage…</p>
+      }
+
+      <a class="cta" [routerLink]="leaguesHref()" [queryParams]="leaguesQuery()">Go to your leagues</a>
+    </header>
+
+    @if (home(); as page) {
+      @if (topPlayerOfTheWeek(); as mvp) {
+        <section class="mvp">
+          <div class="potw-head">
+            <h2>Top player of the week</h2>
+            <p>The highest scorer across every competition’s weekly standout.</p>
+          </div>
+
+          <article
+            class="potw-card potw-card-mvp"
+            [ngStyle]="{
+              '--potw-primary': mvp.primaryColor || '#b6f34a',
+              '--potw-secondary': mvp.secondaryColor || '#eef6e8',
+            }"
+          >
+            <div class="mvp-badge">MVP</div>
+            <ng-container [ngTemplateOutlet]="playerCard" [ngTemplateOutletContext]="{ player: mvp }" />
+          </article>
+        </section>
+      }
+
+      <section class="potw">
+        <div class="potw-head">
+          <h2>Players of the week</h2>
+          <p>Top scorer from your squad in each competition’s latest gameweek.</p>
+        </div>
+
+        @if (!page.playersOfTheWeek.length) {
+          <p class="muted">No weekly standouts yet — ingest a finished gameweek to unlock this board.</p>
+        } @else {
+          <div
+            class="potw-marquee"
+            (mouseenter)="pauseMarquee()"
+            (mouseleave)="resumeMarquee()"
+          >
+            <div class="potw-rail" #marqueeTrack>
+              @for (player of marqueePlayers(); track $index) {
+                <article
+                  class="potw-card"
+                  [class.potw-card-mvp]="isTopPlayer(player)"
+                  [ngStyle]="{
+                    '--potw-primary': player.primaryColor || '#b6f34a',
+                    '--potw-secondary': player.secondaryColor || '#eef6e8',
+                  }"
+                >
+                  @if (isTopPlayer(player)) {
+                    <div class="mvp-badge mvp-badge-compact">MVP</div>
+                  }
+                  <ng-container [ngTemplateOutlet]="playerCard" [ngTemplateOutletContext]="{ player: player }" />
+                </article>
+              }
+            </div>
+          </div>
+        }
+      </section>
+    }
+  </div>
+</section>
+
+<ng-template #playerCard let-player="player">
+  <div class="potw-meta">
+    @if (player.logoUrl) {
+      <img class="comp-logo" [src]="player.logoUrl" [alt]="player.competitionName" (error)="hideImage($event)" />
+    }
+    <div>
+      <span class="comp-name">{{ player.competitionName }}</span>
+    </div>
+  </div>
+
+  <div class="portrait-stage">
+    @if (player.playerPortraitUrl) {
+      <img
+        class="portrait"
+        [src]="player.playerPortraitUrl"
+        [alt]="player.name"
+        (error)="hideImage($event)"
+      />
+    } @else {
+      <div class="portrait portrait-fallback" aria-hidden="true"></div>
+    }
+    @if (player.clubCrestUrl) {
+      <img
+        class="crest"
+        [src]="player.clubCrestUrl"
+        [alt]="player.club || 'Club crest'"
+        (error)="hideImage($event)"
+      />
+    }
+  </div>
+
+  <div class="player-copy">
+    <span class="shirt">{{ shirtLabel(player) }}</span>
+    <strong class="name">{{ player.name }}</strong>
+    <span class="club">{{ player.club || '—' }}</span>
+    <span class="gw-label">{{ player.gameweekName }} · {{ player.points | number: '1.0-1' }} pts</span>
+  </div>
+</ng-template>

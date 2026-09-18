@@ -15,6 +15,42 @@ export interface Competition {
   secondaryColor: string | null;
 }
 
+export interface HomePage {
+  defaultCompetitionId: number | null;
+  defaultCompetitionSlug: string;
+  leagueBrands: LeagueBrand[];
+  playersOfTheWeek: PlayerOfTheWeek[];
+}
+
+export interface LeagueBrand {
+  brandKey: string;
+  name: string;
+  logoUrl: string | null;
+  logoDarkUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+}
+
+export interface PlayerOfTheWeek {
+  competitionId: number;
+  competitionName: string;
+  competitionSlug: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  gameweek: number;
+  gameweekName: string;
+  playerId: number;
+  externalId: string;
+  name: string;
+  shirtNumber: number | null;
+  position: string | null;
+  club: string | null;
+  playerPortraitUrl: string | null;
+  clubCrestUrl: string | null;
+  points: number;
+}
+
 export interface TeamView {
   competition: {
     id: number;
@@ -91,6 +127,7 @@ export interface PickView {
   position: string | null;
   club: string | null;
   clubCrestUrl: string | null;
+  shirtNumber: number | null;
   role: string;
   captain: boolean;
   viceCaptain: boolean;

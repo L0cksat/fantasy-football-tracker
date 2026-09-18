@@ -216,6 +216,7 @@ public class CompetitionQueryService {
 							player.getPosition(),
 							player.getClub(),
 							ClubCrests.url(competition.getSource(), player.getClubExternalId(), player.getClub()),
+							player.getShirtNumber(),
 							pick.getRole(),
 							pick.isCaptain(),
 							pick.isViceCaptain(),

@@ -93,6 +93,11 @@ public final class CompetitionBranding {
 		return SOFASCORE_COLORS.get(id);
 	}
 
+	/** Shared visual key so FPL↔PL and Official LaLiga↔SofaScore LaLiga share one logo. */
+	public static String brandKey(String source, String externalId) {
+		return brandingTournamentId(source, externalId);
+	}
+
 	private static String brandingTournamentId(String source, String externalId) {
 		if (source != null && "laliga-fantasy".equalsIgnoreCase(source)) {
 			return "8";

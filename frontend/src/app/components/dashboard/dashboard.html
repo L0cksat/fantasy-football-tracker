@@ -11,8 +11,10 @@
   </div>
 }
 
+<main class="ft-main">
 <section class="dash" [class.dash-branded]="!!pageBrand()" [class.dash-fpl]="isOfficialFpl()">
   <header class="dash-hero">
+    <a class="home-link" routerLink="/">← Home</a>
     <p class="eyebrow">Fantasy Football tracker</p>
     <h1>Your leagues, weeks, and points</h1>
     <p class="lede">
@@ -105,6 +107,64 @@
         </div>
         <p class="score">{{ team.teamPoints | number: '1.0-1' }} <span>pts</span></p>
       </div>
+
+      @if (playerOfTheWeek(); as potw) {
+        <div class="gw-potw">
+          <div class="gw-potw-head">
+            <h3>Player of the week</h3>
+            <p>Top scorer from your squad in {{ team.gameweek.name }}.</p>
+          </div>
+          <article
+            class="potw-card"
+            [ngStyle]="{
+              '--potw-primary': team.competition.primaryColor || '#b6f34a',
+              '--potw-secondary': team.competition.secondaryColor || '#eef6e8',
+            }"
+          >
+            <div class="potw-meta">
+              @if (team.competition.logoUrl) {
+                <img
+                  class="potw-comp-logo"
+                  [src]="team.competition.logoUrl"
+                  [alt]="team.competition.name"
+                  (error)="hideImage($event)"
+                />
+              }
+              <div>
+                <span class="potw-comp-name">{{ team.competition.name }}</span>
+              </div>
+            </div>
+
+            <div class="portrait-stage">
+              @if (potw.playerPortraitUrl) {
+                <img
+                  class="portrait"
+                  [src]="potw.playerPortraitUrl"
+                  [alt]="potw.name"
+                  (error)="hideImage($event)"
+                />
+              } @else {
+                <div class="portrait portrait-fallback" aria-hidden="true"></div>
+              }
+              @if (potw.clubCrestUrl) {
+                <img
+                  class="crest"
+                  [src]="potw.clubCrestUrl"
+                  [alt]="potw.club || 'Club crest'"
+                  (error)="hideImage($event)"
+                />
+              }
+            </div>
+
+            <div class="player-copy">
+              <span class="shirt">{{ shirtLabel(potw) }}</span>
+              <strong class="name">{{ potw.name }}</strong>
+              <span class="club">{{ potw.club || '—' }}</span>
+              <span class="gw-label">{{ team.gameweek.name }} · {{ potw.points | number: '1.0-1' }} pts</span>
+            </div>
+          </article>
+        </div>
+      }
 
       <h3>Starting XI</h3>
       <div class="table-wrap">
@@ -384,7 +444,7 @@
               </div>
             }
             @if (market.season.boughtFrom.length) {
-              <p class="muted">Release clauses you played</p>
+              <p class="muted">Release clauses you paid</p>
               <div class="table-wrap">
                 <table>
                   <thead>
@@ -477,3 +537,4 @@
     }
   </section>
 </section>
+</main>

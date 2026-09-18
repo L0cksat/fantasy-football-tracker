@@ -7,6 +7,7 @@ from typing import Any, Iterable
 
 import requests
 
+from collector.adapters.sofascore import _browser_headers, _http_get
 from collector.adapters.sofascore_directory import (
     WSL2_TOURNAMENT_ID,
     WSL_TOURNAMENT_ID,
@@ -294,7 +295,42 @@ def _player_from_row(player_id: str, row: dict[str, Any], catalog: dict[str, Any
         position=POSITIONS.get(int(row.get("skillId") or 0)) or _position_name(row.get("skillName")),
         club=club,
         clubExternalId=str(club_id) if club_id is not None else None,
+        shirtNumber=_shirt_number_from_sofascore(sofascore, catalog),
     )
+
+
+def _shirt_number_from_sofascore(sofascore: dict[str, Any] | None, catalog: dict[str, Any]) -> int | None:
+    """Jersey from SofaScore player profile (tournament player lists omit shirt numbers)."""
+    if not sofascore or sofascore.get("playerId") is None:
+        return None
+    player_id = str(sofascore["playerId"])
+    cache = catalog.setdefault("_shirt_numbers", {})
+    if player_id in cache:
+        return cache[player_id]
+    for key in ("jerseyNumber", "shirtNumber"):
+        raw = sofascore.get(key)
+        if raw is not None and str(raw).strip() != "":
+            try:
+                cache[player_id] = int(float(raw))
+                return cache[player_id]
+            except (TypeError, ValueError):
+                pass
+    try:
+        response = _http_get(
+            f"https://www.sofascore.com/api/v1/player/{player_id}",
+            headers=_browser_headers(""),
+            timeout=12,
+        )
+        if response.status_code == 200:
+            player = (response.json() or {}).get("player") or {}
+            raw = player.get("jerseyNumber") if player.get("jerseyNumber") is not None else player.get("shirtNumber")
+            if raw is not None and str(raw).strip() != "":
+                cache[player_id] = int(float(raw))
+                return cache[player_id]
+    except Exception:
+        pass
+    cache[player_id] = None
+    return None
 
 
 def _sofascore_player_id(player_id: str, row: dict[str, Any], catalog: dict[str, Any]) -> dict[str, Any] | None:

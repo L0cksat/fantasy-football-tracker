@@ -42,6 +42,7 @@ public record TeamViewResponse(
 			String position,
 			String club,
 			String clubCrestUrl,
+			Integer shirtNumber,
 			String role,
 			boolean captain,
 			boolean viceCaptain,

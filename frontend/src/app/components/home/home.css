@@ -1,0 +1,399 @@
+:host {
+  display: block;
+}
+
+.home {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow: hidden;
+  color: var(--ft-cream);
+}
+
+.home-wash {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(238, 246, 232, 0.14), transparent 42%),
+    radial-gradient(ellipse at 88% 18%, rgba(182, 243, 74, 0.12), transparent 36%),
+    linear-gradient(180deg, rgba(7, 20, 13, 0.55), rgba(7, 20, 13, 0.92)),
+    var(--home-mix);
+  animation: wash-shift 18s ease-in-out infinite alternate;
+}
+
+.home-logos {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.home-logo {
+  position: absolute;
+  width: clamp(6.5rem, 12vw, 9.5rem);
+  height: auto;
+  opacity: 0.14;
+  filter: grayscale(0.15) contrast(1.05);
+  animation: logo-drift 22s ease-in-out infinite alternate;
+}
+
+/* One unique slot per brand — never mix top+bottom or left+right on the same logo. */
+.home-logo-0 {
+  top: 6%;
+  left: 4%;
+  animation-delay: 0s;
+}
+.home-logo-1 {
+  top: 10%;
+  right: 5%;
+  animation-delay: -3s;
+}
+.home-logo-2 {
+  top: 36%;
+  left: 2%;
+  animation-delay: -6s;
+}
+.home-logo-3 {
+  top: 34%;
+  right: 3%;
+  animation-delay: -9s;
+}
+.home-logo-4 {
+  bottom: 22%;
+  left: 8%;
+  animation-delay: -12s;
+}
+.home-logo-5 {
+  top: 52%;
+  right: 6%;
+  animation-delay: -2s;
+}
+.home-logo-6 {
+  bottom: 10%;
+  right: 28%;
+  animation-delay: -8s;
+}
+.home-logo-7 {
+  top: 18%;
+  left: 42%;
+  animation-delay: -11s;
+}
+.home-logo-8 {
+  bottom: 8%;
+  left: 36%;
+  animation-delay: -5s;
+}
+.home-logo-9 {
+  bottom: 28%;
+  right: 42%;
+  animation-delay: -14s;
+}
+
+.home-content {
+  position: relative;
+  z-index: 2;
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2.5rem 0 4rem;
+  display: grid;
+  gap: 2.5rem;
+}
+
+.home-hero {
+  max-width: 38rem;
+  display: grid;
+  gap: 1rem;
+  animation: rise-in 0.7s ease-out both;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--ft-lime);
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+
+.home-hero h1 {
+  margin: 0;
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  line-height: 0.95;
+  background: linear-gradient(120deg, #eef6e8 10%, #b6f34a 55%, #eef6e8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lede {
+  margin: 0;
+  color: rgba(238, 246, 232, 0.84);
+  font-size: 1.08rem;
+  line-height: 1.45;
+  max-width: 34rem;
+}
+
+.banner {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(80, 20, 20, 0.55);
+  border-radius: 10px;
+}
+
+.muted {
+  color: var(--ft-muted);
+}
+
+.cta {
+  justify-self: start;
+  margin-top: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.9rem 1.35rem;
+  border-radius: 999px;
+  text-decoration: none;
+  color: #07140d;
+  background: var(--ft-lime);
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  box-shadow: 0 10px 30px rgba(182, 243, 74, 0.25);
+  animation: rise-in 0.85s ease-out both;
+}
+
+.cta:hover {
+  transform: translateY(-2px) scale(1.02);
+  background: #c8ff6a;
+  box-shadow: 0 16px 36px rgba(182, 243, 74, 0.35);
+}
+
+.potw {
+  display: grid;
+  gap: 1rem;
+  animation: rise-in 1s ease-out both;
+}
+
+.mvp {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  text-align: center;
+  animation: rise-in 0.9s ease-out both;
+}
+
+.mvp .potw-head {
+  width: 100%;
+}
+
+.mvp .potw-card-mvp {
+  width: min(22rem, 100%);
+  justify-self: center;
+}
+
+.potw-head h2 {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+}
+
+.potw-head p {
+  margin: 0;
+  color: var(--ft-muted);
+}
+
+.potw-marquee {
+  overflow: hidden;
+  width: 100%;
+  mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+}
+
+.potw-rail {
+  display: flex;
+  gap: 1rem;
+  width: max-content;
+  padding: 0.35rem 0.15rem 1rem;
+  will-change: transform;
+}
+
+.potw-card {
+  position: relative;
+  flex: 0 0 17.5rem;
+  width: 17.5rem;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1rem 1.15rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(165deg, color-mix(in srgb, var(--potw-primary) 35%, rgba(8, 16, 12, 0.92)), rgba(8, 16, 12, 0.88)),
+    rgba(12, 20, 16, 0.9);
+  border: 1px solid color-mix(in srgb, var(--potw-secondary) 35%, transparent);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.potw-card-mvp {
+  border: 2px solid var(--ft-lime);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--ft-lime) 55%, transparent),
+    0 0 28px color-mix(in srgb, var(--ft-lime) 28%, transparent),
+    0 18px 40px rgba(0, 0, 0, 0.32);
+  background:
+    linear-gradient(165deg, color-mix(in srgb, var(--potw-primary) 42%, rgba(8, 16, 12, 0.9)), rgba(8, 16, 12, 0.9)),
+    rgba(12, 20, 16, 0.94);
+}
+
+.mvp-badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  background: var(--ft-lime);
+  color: #07140d;
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.mvp-badge-compact {
+  font-size: 0.68rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.potw-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.comp-logo {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
+.comp-name {
+  display: block;
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+
+.portrait-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.15;
+  border-radius: 16px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--potw-secondary) 30%, transparent), rgba(0, 0, 0, 0.35));
+}
+
+.portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.portrait-fallback {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.35));
+}
+
+.crest {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 0.7rem;
+  width: clamp(3.2rem, 28%, 4.4rem);
+  height: auto;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.55));
+}
+
+.player-copy {
+  display: grid;
+  gap: 0.15rem;
+  text-align: center;
+}
+
+.shirt {
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  font-size: 1.6rem;
+  letter-spacing: 0.04em;
+  color: var(--potw-secondary);
+}
+
+.name {
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+
+.club {
+  color: rgba(238, 246, 232, 0.75);
+  font-size: 0.92rem;
+}
+
+.gw-label {
+  display: block;
+  margin-top: 0.35rem;
+  font-family: "Oswald", "Arial Narrow", sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 1.25rem;
+  line-height: 1.15;
+  color: var(--potw-secondary);
+}
+
+@keyframes wash-shift {
+  from {
+    filter: hue-rotate(0deg) saturate(1);
+  }
+  to {
+    filter: hue-rotate(12deg) saturate(1.08);
+  }
+}
+
+@keyframes logo-drift {
+  from {
+    transform: translateY(0) rotate(-3deg) scale(1);
+  }
+  to {
+    transform: translateY(-12px) rotate(3deg) scale(1.03);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 720px) {
+  .home-content {
+    padding-top: 1.5rem;
+  }
+
+  .home-logo {
+    width: 5.5rem;
+    opacity: 0.1;
+  }
+
+  .potw-card {
+    flex-basis: min(13.5rem, 78vw);
+    width: min(13.5rem, 78vw);
+  }
+}

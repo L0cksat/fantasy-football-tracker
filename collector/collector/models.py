@@ -11,6 +11,7 @@ class PlayerPayload:
     position: str | None = None
     club: str | None = None
     clubExternalId: str | None = None
+    shirtNumber: int | None = None
 
 
 @dataclass

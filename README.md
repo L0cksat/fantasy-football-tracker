@@ -1,8 +1,30 @@
 # Fantasy Football Tracker
 
+[![Angular](https://img.shields.io/badge/Angular-21-DD0031?logo=angular&logoColor=white)](https://angular.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![GSAP](https://img.shields.io/badge/GSAP-3-88CE02?logo=greensock&logoColor=black)](https://gsap.com/)
+
 Personal SofaScore Fantasy tracker: Python collector → Spring Boot + MySQL → Angular dashboard.
 
 The dashboard shows your squad, captain chips, club crests, player portraits, week-vs-week compare, season totals, and transfers.
+
+## Screenshots
+
+Homepage with MVP and competition wash:
+
+![Homepage — players of the week](docs/screenshots/home.png)
+
+Competition dashboard (squad, totals, player of the week):
+
+![Competition dashboard](docs/screenshots/leagues.png)
+
+Players of the week marquee (GSAP — pauses on hover):
+
+![Players of the week marquee](docs/screenshots/potw-marquee.gif)
 
 ## Layout
 
@@ -64,6 +86,7 @@ The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull
 
 ## API
 
+- `GET /api/v1/home`
 - `POST /api/v1/ingest/snapshots`
 - `POST /api/v1/ingest/transfers`
 - `GET /api/v1/competitions`
