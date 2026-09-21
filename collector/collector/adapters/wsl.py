@@ -291,9 +291,13 @@ def _pick_from_wsl(
 def _player_from_row(player_id: str, row: dict[str, Any], catalog: dict[str, Any]) -> PlayerPayload:
     first = str(row.get("mediaFirstName") or "").strip()
     last = str(row.get("mediaLastName") or "").strip()
-    name = str(row.get("mediaShortName") or "").strip() or " ".join(part for part in (first, last) if part) or player_id
     club = str(row.get("teamOfficialName") or row.get("teamShortName") or "").strip() or None
     sofascore = _sofascore_player_id(player_id, row, catalog)
+    # Prefer SofaScore full names (Fran Kirby) over WSL short labels (F. Kirby).
+    sofa_name = str((sofascore or {}).get("playerName") or "").strip()
+    full_name = " ".join(part for part in (first, last) if part)
+    short_name = str(row.get("mediaShortName") or "").strip()
+    name = sofa_name or full_name or short_name or player_id
     club_id = sofascore.get("teamId") if sofascore else None
     return PlayerPayload(
         externalId=str(sofascore["playerId"]) if sofascore and sofascore.get("playerId") is not None else f"wsl-{_short_id(player_id)}",

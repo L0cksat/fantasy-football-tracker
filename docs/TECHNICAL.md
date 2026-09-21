@@ -82,11 +82,13 @@ Frontend-only surface for the leagues dashboard.
 
 ### `HomePageService`
 
-Why it exists: one read model for the homepage so Angular does not assemble brands/POTW from many competition calls.
+Why it exists: one read model for the homepage so Angular does not assemble brands/POTW/standings from many competition calls.
 
-- **`homePage`** — all competitions; default prefers SofaScore `premier-league`; unique `LeagueBrand`s keyed by `CompetitionBranding.brandKey`; one `PlayerOfTheWeek` per competition that has a scored squad.
+- **`homePage`** — all competitions; default prefers SofaScore `premier-league`; unique `LeagueBrand`s keyed by `CompetitionBranding.brandKey`; one `PlayerOfTheWeek` per competition that has a scored squad; three ranked standings lists (latest week, Europe season, Americas season).
 - **`playerOfTheWeek(Competition)`** — resolves latest scored gameweek; picks the squad row with max `CaptainScoring.effective(raw, captain, tripleCaptain)`; club / shirt / crest prefer **pick-scoped** fields, then fall back to `Player`.
-- **`resolveLatestScoredGameweek`** — prefer latest `status=finished` week with picks; else latest team score with points &gt; 0; else last score row.
+- **`latestWeekStanding` / `seasonTotalStanding` / `rankStandings`** — build `LeagueStanding` rows (logo + brand colours + points); season totals only sum weeks that pass `isScoringComplete`; Americas vs Europe via `CompetitionBranding.isAmericas` (MLS + Brasileirão).
+- **`resolveLatestScoredGameweek`** — prefer latest week that is scoring-complete with picks; else latest team score with points &gt; 0; else last score row. SofaScore often leaves prior rounds as `live` until the season finalises, so **points &gt; 0 counts as complete**.
+- **`isScoringComplete`** — `status=finished` **or** team points &gt; 0 (keeps open 0-pt shells out of POTW / standings / low-week math).
 - **`displayBrandName`** — short labels for the brand wash (`"10783"` → `"Nations League"`, etc.).
 
 #### Players of the Week vs MVP
@@ -96,8 +98,10 @@ Why it exists: one read model for the homepage so Angular does not assemble bran
 | **POTW** | Backend `HomePageService` | Per competition: highest captain-effective points in that competition’s resolved latest GW (**your squad only**). |
 | **MVP** | Frontend `HomeComponent.topPlayerOfTheWeek` | Highest `points` across the returned `playersOfTheWeek` list (cross-competition). |
 | **GW card** | Frontend `DashboardComponent.playerOfTheWeek` | Highest `pick.points` in the **selected** competition gameweek. |
-| **Season high / low GW** | Frontend from `totals` | Max / min team points across scored weeks (cards between squad and Compare). |
+| **Season high / low GW** | Frontend from `totals` | Max across all weeks; **min only among scoring-complete weeks** (finished or points &gt; 0). |
+| **Homepage standings** | `latestWeekStandings` / `europeTotalStandings` / `americasTotalStandings` | Ranked by latest scored GW points, or season sum of complete weeks. |
 | **LaLiga buy / sale cards** | `transferMarket.mostExpensivePurchase` / `highestSale` | Season max `priceIn` / `priceOut` across official transfer rows. |
+| **Longest serving (Desafío)** | `longestServingPlayer` | Most starter GWs; tie-break total starter points. |
 
 ### `IngestService`
 
@@ -120,12 +124,13 @@ Why it exists: GET payloads include derived media (crest, portrait, colours) and
 - **`listCompetitions`** — all competitions with branding + distinct gameweek numbers.
 - **`teamView` / `gameweekView`** — same builder; `teamView` picks latest week if unspecified.
 - **`compare`** — players in either week; points use captain multiplier per week’s triple-captain flag; club via `clubOf`.
-- **`totals`** — ordered week scores + season total.
-- **`buildTeamView`** — starters/bench, portraits, crests (pick-scoped club), transfers, transfer-market summary (incl. LaLiga season extremes).
+- **`totals`** — ordered week scores + season total; each `GameweekTotal` includes **`status`** so the UI can filter unfinished open shells for lowest-week.
+- **`buildTeamView`** — starters/bench, portraits, crests (pick-scoped club), transfers, transfer-market summary (incl. LaLiga season extremes), optional **`longestServingPlayer`** for Official LaLiga.
+- **`findLongestServingPlayer`** — count `role=starter` GWs per player; ties broken by sum of starter points; crest/portrait/shirt from pick-scoped fields.
 - **`buildTransfers`** — stored `gameweek_transfer` rows if present; otherwise **squad-diff** against the previous week (WSL and gaps in official feeds).
 - **`toTransfer` (overloads)** — maps a player + price + counterpart into the dashboard transfer card; the `SquadPick` overload uses pick-scoped club.
 - **`clubOf` / `clubExternalIdOf` / `shirtNumberOf`** — prefer pick fields, else `Player` (legacy rows before migration).
-- **`buildTransferMarket` / `summarizeMarket` / `toCounterpartGroups` / `Accumulator`** — LaLiga market vs release-clause totals (week + season).
+- **`buildTransferMarket` / `summarizeMarket` / `toCounterpartGroups` / `Accumulator`** — LaLiga market vs release-clause totals (week + season). Frontend sums market + release-clause sides into **Total sold / Total bought**.
 - **`findMostExpensivePurchase` / `findHighestSale` / `toHighlight`** — season-wide max buy / max sale from `gameweek_transfer` prices for POTW-style cards on Official LaLiga.
 - **`previousGameweek` / `tripleCaptain` / `pickComparator` / `positionOrder`** — GK→DEF→MID→FWD, starters before bench.
 - **`indexPicks` / `indexScores` / `pointsOf` / `resolveGameweek` / `requireCompetition` / `requireTeam` / `requireGameweek`** — lookups that 404 as 404-style failures.
@@ -149,6 +154,7 @@ Maps `source` + `externalId` onto SofaScore unique-tournament ids. Official FPL 
 | **`flagUrl` / `countryName`** | Category flag + label. |
 | **`primaryColor` / `secondaryColor`** | CSS brand colours for wash / cards / headers. |
 | **`brandKey`** | Shared visual key so FPL↔PL and Official LaLiga↔SofaScore LaLiga share one logo slot. |
+| **`isAmericas`** | True for MLS (`242`) and Brasileirão (`325`) — homepage Americas season table. |
 
 **Private:** `brandingTournamentId` (remaps `laliga-fantasy`→`8`, `fpl`→`17`, `wsl`→`1044`; else SofaScore numeric id), `numericId`, `country`, `colors`.
 
@@ -212,15 +218,15 @@ Spring Data query methods — no custom SQL.
 
 - **`SnapshotRequest`** (+ nested competition/gameweek/team/player/pick) — ingest body.
 - **`TransfersRequest`** (+ round + pair) — ingest transfers; in/out may be null for LaLiga.
-- **`HomePageResponse`** — `defaultCompetitionId` / `defaultCompetitionSlug`, `LeagueBrand` list, `PlayerOfTheWeek` list.
+- **`HomePageResponse`** — `defaultCompetitionId` / `defaultCompetitionSlug`, `LeagueBrand` list, `PlayerOfTheWeek` list, `latestWeekStandings` / `europeTotalStandings` / `americasTotalStandings` (`LeagueStanding`).
 - **`CompetitionResponse`** — list item including branding URLs/colours.
-- **`TeamViewResponse`** — dashboard squad: picks (`injured` / `suspended`), transfers, transfer-market summary (`mostExpensivePurchase` / `highestSale` highlights), captain display fields (`points`, `basePoints`, `captainMultiplier`).
+- **`TeamViewResponse`** — dashboard squad: picks (`injured` / `suspended`), transfers, transfer-market summary (`mostExpensivePurchase` / `highestSale` highlights), optional `longestServingPlayer`, captain display fields (`points`, `basePoints`, `captainMultiplier`).
 - **`CompareResponse` / `PlayerDelta`**
-- **`TotalsResponse` / `GameweekTotal`**
+- **`TotalsResponse` / `GameweekTotal`** — `GameweekTotal` carries `number`, `name`, **`status`**, `points`.
 
 ### Tests
 
-- **`ApiSliceTest`** — MockMvc slice: SofaScore chips, LaLiga market + transfer highlights, FPL badges, WSL branding (tournament 1044), captain display, injured/suspended flags.
+- **`ApiSliceTest`** — MockMvc slice: SofaScore chips, LaLiga market + transfer highlights + longest-serving, FPL badges, WSL branding (tournament 1044), captain display, injured/suspended flags. Forces H2 via `@TestPropertySource` so a local `SPRING_PROFILES_ACTIVE=mysql` cannot wipe the live MySQL DB.
 - **`BackendApplicationTests`** — context load.
 
 ---
@@ -253,11 +259,11 @@ Thin GET client at `http://localhost:8080/api/v1/competitions`. Created so the U
 
 ### `tracker.ts` models
 
-TypeScript mirrors of GET JSON: `HomePage`, `LeagueBrand`, `PlayerOfTheWeek`, `Competition`, `TeamView`, `PickView` (`injured` / `suspended`), `TransferView`, `TransferHighlight`, `TransferMarket*` (incl. season extremes), `CompareView`, `PlayerDelta`, `TotalsView`.
+TypeScript mirrors of GET JSON: `HomePage` (incl. `LeagueStanding` lists), `LeagueBrand`, `PlayerOfTheWeek`, `Competition`, `TeamView` (incl. `LongestServingPlayer`), `PickView` (`injured` / `suspended`), `TransferView`, `TransferHighlight`, `TransferMarket*` (incl. season extremes), `CompareView`, `PlayerDelta`, `TotalsView` (`GameweekTotal.status`).
 
 ### `HomeComponent` — landing page
 
-Why: brand-first homepage with league wash, MVP card, and a sliding Players of the Week rail.
+Why: brand-first homepage with league wash, MVP card, a sliding Players of the Week rail, and league standings tables.
 
 **Signals:** `home`, `error`, `loading`.
 
@@ -276,6 +282,8 @@ Why: brand-first homepage with league wash, MVP card, and a sliding Players of t
 - **`pauseMarquee` / `resumeMarquee`** — bound to marquee `mouseenter` / `mouseleave`.
 
 **Helpers:** `hideImage`, `shirtLabel`, `isTopPlayer` (MVP highlight on duplicated marquee cards).
+
+Standings UI: three tables under POTW — **Latest week**, **Europe (season)**, **Americas (season)** — each row uses competition logo + brand CSS vars from the API.
 
 #### Homepage POTW / MVP styling (`home.css`)
 
@@ -298,7 +306,7 @@ Template: `home.html` — wash, logo field, hero, MVP `ng-template` card, marque
 
 ### `DashboardComponent` — leagues page
 
-Why: one page for every league — branding, XI, bench/squad, GW standout card, status chips, season high/low weeks, transfers (LaLiga deal cards), compare, totals.
+Why: one page for every league — branding, XI, bench/squad, GW standout card, status chips, season high/low weeks, transfers (LaLiga deal cards + market totals), longest-serving card, compare, totals.
 
 **Signals:** `competitions`, `selectedId`, `gameweek`, `fromGw`, `toGw`, `teamView`, `compareView`, `totalsView`, `error`, `loading`.
 
@@ -311,8 +319,9 @@ Why: one page for every league — branding, XI, bench/squad, GW standout card, 
 - **`reserveHeading`** — “Squad” vs “Bench”.
 - **`showTransferCounterpart`** — LaLiga or any move with a counterpart.
 - **`playerOfTheWeek`** — max `pick.points` in the current `teamView` (GW card).
-- **`highestScoringGameweek` / `lowestScoringGameweek`** — season extremes from `totalsView.gameweeks`.
+- **`highestScoringGameweek` / `lowestScoringGameweek`** — season extremes from `totalsView.gameweeks`; lowest filters with `isScoringComplete` (finished or points &gt; 0).
 - **`mostExpensivePurchase` / `highestPlayerSale`** — Official LaLiga only; from `transferMarket` season highlights.
+- **`longestServingPlayer`** — Official LaLiga only; from `teamView.longestServingPlayer`.
 
 **Methods**
 
@@ -320,7 +329,8 @@ Why: one page for every league — branding, XI, bench/squad, GW standout card, 
 - **`selectCompetition`** — latest week, compare from first→latest, refresh all three GETs.
 - **`onCompetitionChange` / `onGameweekChange` / `onCompareChange`** — template bindings.
 - **`transferLabel` / `priceFormat` / `counterpartLabel` / `hasMarketDeals`** — LaLiga market wording and prices.
-- **`shirtLabel` / `transferHighlightShirt` / `transferHighlightMeta`** — shirt / GW+counterpart for POTW-style transfer cards.
+- **`totalSold` / `totalBought` / `counterpartTotals`** — combine market + release-clause deal groups; footer totals on manager counterpart tables.
+- **`shirtLabel` / `transferHighlightShirt` / `longestServingShirt` / `transferHighlightMeta`** — shirt / GW+counterpart for POTW-style cards.
 - **`isInjured` / `isSuspended`** — status chips on squad rows.
 - **`hideImage`** — hide broken crest/portrait.
 - **`signed`** — `+n` / `n` for compare deltas.
@@ -338,6 +348,8 @@ Same visual language as homepage cards, scoped under the competition view:
 | `.chip-injured` / `.chip-suspended` | Amber / red outline chips next to player names. |
 | `.score-extremes` | Two-column Season-total-style cards for best/worst GW. |
 | `.transfer-highlights`, `.transfer-highlights-grid` | Side-by-side LaLiga purchase/sale POTW cards in Transfers. |
+| `.longest-serving` | Centered veteran card between squad and transfers. |
+| `.market-totals` / table `tfoot` | Total sold/bought chips + manager-table footers. |
 
 Also: `.page-brand`, `.page-brand-fpl`, `.panel-head-branded`, FPL neon overlays — competition header theming (not POTW-specific).
 
@@ -444,6 +456,7 @@ Auth is request header **`x-game-token`** (env `WSL_GAME_TOKEN`, fallback `WSL_B
 - **`wsl_game_token` / `wsl_gameplay_id` / `wsl_configured` / `pull_wsl`**
 - **`competition_payload` / `team_payload` / `snapshot_from_my_team` / `transfers_from_squads`** — transfers are week-to-week `arrTeam` diffs.
 - **`_pick_from_wsl` / `_player_from_row` / `_sofascore_player_id` / `_transfer_player`**
+- **`_display_name`** — prefer SofaScore `playerName` from the unique-tournament cache when present (WSL feed often has short/incomplete names).
 - **`_current_injured_ids` / `_safe_round_overlay` / `_safe_wsl_players`** — overlay 1044 + 10553.
 - **`_gameweek_status` / `_starts_at` / `_season`**
 - **`_raw_points`** — my-team `totalPoints` **already includes captain ×2**; store half so the API does not double again.
@@ -456,6 +469,7 @@ App-only game (100M€ market, XI + unused squad, unpaired buys/sells, no captai
 - **`load_workbook_payloads`** — snapshots + transfer batch.
 - **`_competition_and_team` / `_snapshots_from_squads` / `_transfers_from_sheet`**
 - **`_pick_from_row` / `_deal_from_row` / `_transfer_player`**
+- **`_fetch_sofascore_shirt`** — when the sheet has a numeric SofaScore player id, GET `player/{id}` and store `jerseyNumber` as `shirtNumber`.
 - **`_key_values` / `_table_rows` / `_id_or_slug` / `_slug` / `_digits` / `_int` / `_optional_float` / `_optional_text` / `_position` / `_action` / `_injured` / `_role`**
 
 ### File import (`adapters/file_import.py`)

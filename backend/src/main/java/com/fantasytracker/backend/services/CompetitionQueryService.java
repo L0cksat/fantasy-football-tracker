@@ -160,6 +160,7 @@ public class CompetitionQueryService {
 				.map(score -> new TotalsResponse.GameweekTotal(
 						score.getGameweek().getNumber(),
 						score.getGameweek().getName(),
+						score.getGameweek().getStatus(),
 						score.getPoints()))
 				.toList();
 		BigDecimal total = weeks.stream()
@@ -255,7 +256,97 @@ public class CompetitionQueryService {
 				transferPenalty,
 				pickViews,
 				buildTransfers(competition, team, gameweek),
-				buildTransferMarket(competition, team, gameweek));
+				buildTransferMarket(competition, team, gameweek),
+				findLongestServingPlayer(competition, team));
+	}
+
+	/**
+	 * Official LaLiga only: most gameweeks as a starter; ties broken by total points scored
+	 * for the team in those starter weeks.
+	 */
+	private TeamViewResponse.LongestServingPlayer findLongestServingPlayer(
+			Competition competition,
+			FantasyTeam team) {
+		if (competition.getSource() == null || !"laliga-fantasy".equalsIgnoreCase(competition.getSource())) {
+			return null;
+		}
+		List<SquadPick> picks = squadPickRepository.findByFantasyTeam_Id(team.getId());
+		if (picks.isEmpty()) {
+			return null;
+		}
+
+		Map<Long, List<SquadPick>> startersByPlayer = new HashMap<>();
+		for (SquadPick pick : picks) {
+			if (pick.getRole() == null || !"starter".equalsIgnoreCase(pick.getRole())) {
+				continue;
+			}
+			startersByPlayer
+					.computeIfAbsent(pick.getPlayer().getId(), ignored -> new ArrayList<>())
+					.add(pick);
+		}
+		if (startersByPlayer.isEmpty()) {
+			return null;
+		}
+
+		Set<Long> playerIds = startersByPlayer.keySet();
+		Set<Long> gameweekIds = startersByPlayer.values().stream()
+				.flatMap(List::stream)
+				.map(pick -> pick.getGameweek().getId())
+				.collect(Collectors.toSet());
+		Map<String, BigDecimal> pointsByPair = new HashMap<>();
+		if (!playerIds.isEmpty() && !gameweekIds.isEmpty()) {
+			for (PlayerGameweekScore score : playerScoreRepository.findByPlayer_IdInAndGameweek_IdIn(
+					playerIds, gameweekIds)) {
+				pointsByPair.put(
+						score.getPlayer().getId() + ":" + score.getGameweek().getId(),
+						score.getPoints() != null ? score.getPoints() : BigDecimal.ZERO);
+			}
+		}
+
+		SquadPick bestPick = null;
+		int bestStarts = -1;
+		BigDecimal bestPoints = BigDecimal.ZERO;
+		for (Map.Entry<Long, List<SquadPick>> entry : startersByPlayer.entrySet()) {
+			List<SquadPick> starterWeeks = entry.getValue();
+			int starts = starterWeeks.size();
+			BigDecimal total = BigDecimal.ZERO;
+			SquadPick latest = null;
+			for (SquadPick pick : starterWeeks) {
+				BigDecimal weekPoints = pointsByPair.getOrDefault(
+						pick.getPlayer().getId() + ":" + pick.getGameweek().getId(),
+						BigDecimal.ZERO);
+				total = total.add(weekPoints);
+				if (latest == null
+						|| pick.getGameweek().getNumber() > latest.getGameweek().getNumber()) {
+					latest = pick;
+				}
+			}
+			if (bestPick == null
+					|| starts > bestStarts
+					|| (starts == bestStarts && total.compareTo(bestPoints) > 0)) {
+				bestStarts = starts;
+				bestPoints = total;
+				bestPick = latest;
+			}
+		}
+		if (bestPick == null) {
+			return null;
+		}
+
+		Player player = bestPick.getPlayer();
+		String club = clubOf(bestPick);
+		String clubExternalId = clubExternalIdOf(bestPick);
+		return new TeamViewResponse.LongestServingPlayer(
+				player.getId(),
+				player.getExternalId(),
+				player.getName(),
+				PlayerPortraits.url(competition.getSource(), player.getExternalId()),
+				player.getPosition(),
+				club,
+				ClubCrests.url(competition.getSource(), clubExternalId, club),
+				shirtNumberOf(bestPick),
+				bestStarts,
+				bestPoints);
 	}
 
 	private List<TeamViewResponse.TransferView> buildTransfers(

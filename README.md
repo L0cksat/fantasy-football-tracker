@@ -10,7 +10,7 @@
 
 Personal SofaScore Fantasy tracker: Python collector → Spring Boot + MySQL → Angular dashboard.
 
-The dashboard shows your squad, captain chips, club crests, player portraits, week-vs-week compare, season totals, transfers, **Injured** / **Suspended** status chips, and season high/low gameweek cards. Official LaLiga Fantasy also highlights your most expensive purchase and highest sale.
+The dashboard shows your squad, captain chips, club crests, player portraits, week-vs-week compare, season totals, transfers, **Injured** / **Suspended** status chips, and season high/low gameweek cards (lowest excludes unfinished open shells). The homepage adds Players of the Week plus **latest-week** and **Europe / Americas season** league tables. Official LaLiga Fantasy (Desafío) also highlights most expensive purchase / highest sale, **Longest serving player**, and market **Total sold / Total bought** plus manager-table footers.
 
 ## Screenshots
 
@@ -37,6 +37,10 @@ Highest and lowest scoring gameweeks (season extremes, beside Compare weeks):
 Official LaLiga — most expensive purchase and highest sale (POTW-style cards in Transfers):
 
 ![LaLiga transfer highlights](docs/screenshots/laliga-transfer-highlights.png)
+
+Homepage league tables (latest week + regional season totals):
+
+League standings live on `/` under Players of the week (API: `latestWeekStandings`, `europeTotalStandings`, `americasTotalStandings`).
 
 ## Layout
 
@@ -96,8 +100,12 @@ The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull
 - Competition logos: `https://img.sofascore.com/api/v1/unique-tournament/{id}/image` (same endpoint the main SofaScore tournament page uses; Champions League is 7, Europa League is 679, Nations League is 10783, MLS is 242, Brasileirão is 325, WSL is 1044)
 - Transfers: official SofaScore transfers JSON (paired in/out per round). Squad-diff is only a fallback if a week has no official rows.
 - **Injured / Suspended:** per-GW from SofaScore event lineups `missingPlayers` (injury vs yellow accumulation / red card / unavailable). Stored on `squad_pick` and shown as chips next to the player name.
-- **Season extremes:** Highest / Lowest Scoring Gameweek cards are derived from `GET …/totals` on the competition page.
+- **Season extremes:** Highest / Lowest Scoring Gameweek cards are derived from `GET …/totals` on the competition page. **Lowest** only considers finished weeks (or live weeks that already posted points &gt; 0), so open 0-pt shells like “GW6 not started” do not win.
+- **Homepage league tables:** `GET /api/v1/home` returns `latestWeekStandings` (ranked by each competition’s latest scored GW points) plus `europeTotalStandings` / `americasTotalStandings` (season totals; Americas = MLS + Brasileirão).
 - **Official LaLiga deal highlights:** season max `priceIn` / `priceOut` from `gameweek_transfer` (Most expensive player purchase / Highest player sale).
+- **Longest serving player (Desafío):** most gameweeks with `role=starter`; ties broken by total starter points. Card sits between squad and transfers.
+- **Market totals (Desafío):** UI adds **Total sold** / **Total bought** (market + release-clause sides) for This gameweek and Season, plus footer totals on the manager counterpart tables.
+- **Desafío shirts:** Excel `import-excel` fills `shirtNumber` from SofaScore `player/{id}` `jerseyNumber` when the workbook has a numeric SofaScore player id.
 
 ## API
 
@@ -109,3 +117,7 @@ The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull
 - `GET /api/v1/competitions/{id}/gameweeks/{n}`
 - `GET /api/v1/competitions/{id}/compare?from=1&to=2`
 - `GET /api/v1/competitions/{id}/totals`
+
+## Deploy / hosting
+
+This app is **not published to Hostinger** (shared PHP hosting cannot run Spring Boot + MySQL as designed). Production was planned for an **IONOS Linux VPS** (SSH: MariaDB + JVM + nginx static Angular; collector stays on the PC). There is no live public URL yet — local dashboard remains `http://localhost:4200`.

@@ -84,7 +84,10 @@ public final class ClubCrests {
 			Map.entry("real sociedad", "2824"),
 			Map.entry("sevilla", "2833"),
 			Map.entry("valencia", "2828"),
-			Map.entry("villarreal", "2819"));
+			Map.entry("villarreal", "2819"),
+			// Common misspelling in Official LaLiga Fantasy exports
+			Map.entry("villareal", "2819"),
+			Map.entry("villarreal cf", "2819"));
 
 	private ClubCrests() {
 	}

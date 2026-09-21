@@ -2,7 +2,7 @@ import { DecimalPipe, NgClass, NgStyle } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CompareView, Competition, PickView, TeamView, TotalsView, TransferHighlight } from '../../models/tracker';
+import { CompareView, Competition, CounterpartGroup, DealGroup, PickView, TeamView, TotalsView, TransferHighlight, LongestServingPlayer, TransferMarketScope } from '../../models/tracker';
 import { CompetitionService } from '../../services/competition';
 
 @Component({
@@ -83,13 +83,22 @@ export class DashboardComponent {
     return weeks.reduce((best, week) => (week.points > best.points ? week : best));
   });
 
+  /** Lowest among weeks that have finished scoring (excludes open live/upcoming shells). */
   readonly lowestScoringGameweek = computed(() => {
-    const weeks = this.totalsView()?.gameweeks ?? [];
+    const weeks = (this.totalsView()?.gameweeks ?? []).filter((week) => this.isScoringComplete(week));
     if (!weeks.length) {
       return null;
     }
     return weeks.reduce((worst, week) => (week.points < worst.points ? week : worst));
   });
+
+  /** Finished status, or already posted points (SofaScore often leaves prior rounds as live). */
+  private isScoringComplete(week: { status?: string | null; points: number }): boolean {
+    if ((week.status ?? '').toLowerCase() === 'finished') {
+      return true;
+    }
+    return week.points > 0;
+  }
 
   readonly mostExpensivePurchase = computed(() => {
     if (!this.isOfficialLaLiga()) {
@@ -105,7 +114,18 @@ export class DashboardComponent {
     return this.teamView()?.transferMarket?.highestSale ?? null;
   });
 
+  readonly longestServingPlayer = computed(() => {
+    if (!this.isOfficialLaLiga()) {
+      return null;
+    }
+    return this.teamView()?.longestServingPlayer ?? null;
+  });
+
   transferHighlightShirt(player: TransferHighlight): string {
+    return player.shirtNumber != null ? String(player.shirtNumber) : '—';
+  }
+
+  longestServingShirt(player: LongestServingPlayer): string {
     return player.shirtNumber != null ? String(player.shirtNumber) : '—';
   }
 
@@ -155,6 +175,30 @@ export class DashboardComponent {
         scope.boughtReleaseClause.count >
       0
     );
+  }
+
+  /** Sold to market + release clauses paid by other managers. */
+  totalSold(scope: TransferMarketScope): DealGroup {
+    return this.sumDealGroups(scope.soldToMarket, scope.soldReleaseClause);
+  }
+
+  /** Bought from market + release clauses you paid. */
+  totalBought(scope: TransferMarketScope): DealGroup {
+    return this.sumDealGroups(scope.boughtFromMarket, scope.boughtReleaseClause);
+  }
+
+  counterpartTotals(rows: CounterpartGroup[]): DealGroup {
+    return rows.reduce(
+      (acc, row) => ({ count: acc.count + row.count, total: acc.total + row.total }),
+      { count: 0, total: 0 },
+    );
+  }
+
+  private sumDealGroups(left: DealGroup, right: DealGroup): DealGroup {
+    return {
+      count: left.count + right.count,
+      total: left.total + right.total,
+    };
   }
 
   constructor() {

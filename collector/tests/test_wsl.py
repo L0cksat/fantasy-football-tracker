@@ -115,12 +115,15 @@ def test_wsl_snapshot_maps_captain_raw_points_and_sofascore_ids():
     assert snapshot.gameweek["startsAt"] == "2026-09-04"
     assert snapshot.picks[0].role == "starter"
     assert snapshot.picks[0].player.externalId == "111"
+    assert snapshot.picks[0].player.name == "Hannah Hampton"
     assert snapshot.picks[0].player.clubExternalId == "9001"
     assert snapshot.picks[1].captain is True
     assert snapshot.picks[1].points == 2
     assert snapshot.picks[1].player.externalId == "222"
+    assert snapshot.picks[1].player.name == "Alexia Putellas"
     assert snapshot.picks[1].player.position == "MID"
     assert snapshot.picks[2].role == "bench"
+    assert snapshot.picks[2].player.name == "Alessia Russo"
     assert snapshot.teamPoints == 7
     assert snapshot.tripleCaptain is False
 

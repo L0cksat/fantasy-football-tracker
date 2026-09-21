@@ -14,5 +14,8 @@ public interface PlayerGameweekScoreRepository extends JpaRepository<PlayerGamew
 
 	List<PlayerGameweekScore> findByGameweek_IdAndPlayer_IdIn(Long gameweekId, Collection<Long> playerIds);
 
+	List<PlayerGameweekScore> findByPlayer_IdInAndGameweek_IdIn(
+			Collection<Long> playerIds, Collection<Long> gameweekIds);
+
 	void deleteByPlayer_Id(Long playerId);
 }

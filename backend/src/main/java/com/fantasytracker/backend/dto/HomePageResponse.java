@@ -7,7 +7,10 @@ public record HomePageResponse(
 		Long defaultCompetitionId,
 		String defaultCompetitionSlug,
 		List<LeagueBrand> leagueBrands,
-		List<PlayerOfTheWeek> playersOfTheWeek) {
+		List<PlayerOfTheWeek> playersOfTheWeek,
+		List<LeagueStanding> latestWeekStandings,
+		List<LeagueStanding> europeTotalStandings,
+		List<LeagueStanding> americasTotalStandings) {
 
 	public record LeagueBrand(
 			String brandKey,
@@ -35,6 +38,19 @@ public record HomePageResponse(
 			String club,
 			String playerPortraitUrl,
 			String clubCrestUrl,
+			BigDecimal points) {
+	}
+
+	public record LeagueStanding(
+			int rank,
+			Long competitionId,
+			String competitionName,
+			String competitionSlug,
+			String logoUrl,
+			String primaryColor,
+			String secondaryColor,
+			Integer gameweek,
+			String gameweekName,
 			BigDecimal points) {
 	}
 }

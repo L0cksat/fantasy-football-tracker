@@ -20,6 +20,9 @@ export interface HomePage {
   defaultCompetitionSlug: string;
   leagueBrands: LeagueBrand[];
   playersOfTheWeek: PlayerOfTheWeek[];
+  latestWeekStandings: LeagueStanding[];
+  europeTotalStandings: LeagueStanding[];
+  americasTotalStandings: LeagueStanding[];
 }
 
 export interface LeagueBrand {
@@ -29,6 +32,19 @@ export interface LeagueBrand {
   logoDarkUrl: string | null;
   primaryColor: string | null;
   secondaryColor: string | null;
+}
+
+export interface LeagueStanding {
+  rank: number;
+  competitionId: number;
+  competitionName: string;
+  competitionSlug: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  gameweek: number | null;
+  gameweekName: string | null;
+  points: number;
 }
 
 export interface PlayerOfTheWeek {
@@ -78,6 +94,20 @@ export interface TeamView {
   picks: PickView[];
   transfers: TransferView[];
   transferMarket: TransferMarketSummary | null;
+  longestServingPlayer: LongestServingPlayer | null;
+}
+
+export interface LongestServingPlayer {
+  playerId: number;
+  externalId: string;
+  name: string;
+  playerPortraitUrl: string | null;
+  position: string | null;
+  club: string | null;
+  clubCrestUrl: string | null;
+  shirtNumber: number | null;
+  gameweeksStarted: number;
+  totalPoints: number;
 }
 
 export interface TransferMarketSummary {
@@ -184,5 +214,5 @@ export interface TotalsView {
   competitionId: number;
   teamName: string;
   totalPoints: number;
-  gameweeks: { number: number; name: string; points: number }[];
+  gameweeks: { number: number; name: string; status?: string | null; points: number }[];
 }

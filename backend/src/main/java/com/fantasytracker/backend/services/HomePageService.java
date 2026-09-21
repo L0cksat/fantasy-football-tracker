@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fantasytracker.backend.dto.HomePageResponse;
 import com.fantasytracker.backend.dto.HomePageResponse.LeagueBrand;
+import com.fantasytracker.backend.dto.HomePageResponse.LeagueStanding;
 import com.fantasytracker.backend.dto.HomePageResponse.PlayerOfTheWeek;
 import com.fantasytracker.backend.entities.Competition;
 import com.fantasytracker.backend.entities.FantasyTeam;
@@ -74,6 +75,9 @@ public class HomePageService {
 
 		Map<String, LeagueBrand> brands = new LinkedHashMap<>();
 		List<PlayerOfTheWeek> potw = new ArrayList<>();
+		List<LeagueStanding> weekly = new ArrayList<>();
+		List<LeagueStanding> europe = new ArrayList<>();
+		List<LeagueStanding> americas = new ArrayList<>();
 
 		for (Competition competition : competitions) {
 			String brandKey = CompetitionBranding.brandKey(competition.getSource(), competition.getExternalId());
@@ -94,9 +98,112 @@ public class HomePageService {
 			if (winner != null) {
 				potw.add(winner);
 			}
+
+			FantasyTeam team = fantasyTeamRepository.findByCompetition_Id(competition.getId()).orElse(null);
+			if (team == null) {
+				continue;
+			}
+
+			LeagueStanding weekRow = latestWeekStanding(competition, team);
+			if (weekRow != null) {
+				weekly.add(weekRow);
+			}
+
+			LeagueStanding seasonRow = seasonTotalStanding(competition, team);
+			if (seasonRow == null) {
+				continue;
+			}
+			if (CompetitionBranding.isAmericas(competition.getSource(), competition.getExternalId())) {
+				americas.add(seasonRow);
+			} else {
+				europe.add(seasonRow);
+			}
 		}
 
-		return new HomePageResponse(defaultId, defaultSlug, List.copyOf(brands.values()), List.copyOf(potw));
+		return new HomePageResponse(
+				defaultId,
+				defaultSlug,
+				List.copyOf(brands.values()),
+				List.copyOf(potw),
+				rankStandings(weekly),
+				rankStandings(europe),
+				rankStandings(americas));
+	}
+
+	private LeagueStanding latestWeekStanding(Competition competition, FantasyTeam team) {
+		Gameweek gameweek = resolveLatestScoredGameweek(team.getId(), competition.getId());
+		if (gameweek == null) {
+			return null;
+		}
+		BigDecimal points = teamScoreRepository
+				.findByFantasyTeam_IdAndGameweek_Id(team.getId(), gameweek.getId())
+				.map(TeamGameweekScore::getPoints)
+				.orElse(BigDecimal.ZERO);
+		return standing(competition, gameweek.getNumber(), gameweek.getName(), points);
+	}
+
+	private LeagueStanding seasonTotalStanding(Competition competition, FantasyTeam team) {
+		List<TeamGameweekScore> scores =
+				teamScoreRepository.findByFantasyTeam_IdOrderByGameweek_NumberAsc(team.getId());
+		if (scores.isEmpty()) {
+			return null;
+		}
+		BigDecimal total = BigDecimal.ZERO;
+		for (TeamGameweekScore score : scores) {
+			if (!isScoringComplete(score.getGameweek(), score)) {
+				continue;
+			}
+			if (score.getPoints() != null) {
+				total = total.add(score.getPoints());
+			}
+		}
+		return standing(competition, null, null, total);
+	}
+
+	private static LeagueStanding standing(
+			Competition competition,
+			Integer gameweek,
+			String gameweekName,
+			BigDecimal points) {
+		String logo = CompetitionBranding.logoDarkUrl(competition.getSource(), competition.getExternalId());
+		if (logo == null) {
+			logo = CompetitionBranding.logoUrl(competition.getSource(), competition.getExternalId());
+		}
+		return new LeagueStanding(
+				0,
+				competition.getId(),
+				competition.getName(),
+				competition.getSlug(),
+				logo,
+				CompetitionBranding.primaryColor(competition.getSource(), competition.getExternalId()),
+				CompetitionBranding.secondaryColor(competition.getSource(), competition.getExternalId()),
+				gameweek,
+				gameweekName,
+				points != null ? points : BigDecimal.ZERO);
+	}
+
+	private static List<LeagueStanding> rankStandings(List<LeagueStanding> rows) {
+		List<LeagueStanding> sorted = rows.stream()
+				.sorted(Comparator
+						.comparing(LeagueStanding::points, Comparator.nullsLast(Comparator.reverseOrder()))
+						.thenComparing(LeagueStanding::competitionId))
+				.toList();
+		List<LeagueStanding> ranked = new ArrayList<>(sorted.size());
+		for (int i = 0; i < sorted.size(); i++) {
+			LeagueStanding row = sorted.get(i);
+			ranked.add(new LeagueStanding(
+					i + 1,
+					row.competitionId(),
+					row.competitionName(),
+					row.competitionSlug(),
+					row.logoUrl(),
+					row.primaryColor(),
+					row.secondaryColor(),
+					row.gameweek(),
+					row.gameweekName(),
+					row.points()));
+		}
+		return List.copyOf(ranked);
 	}
 
 	private PlayerOfTheWeek playerOfTheWeek(Competition competition) {
@@ -174,20 +281,30 @@ public class HomePageService {
 				bestPoints);
 	}
 
-	/** Prefer the latest finished week with a squad; else the latest week that has any points. */
+	/**
+	 * Prefer the latest week that has finished scoring and has a squad.
+	 * SofaScore often leaves prior rounds as {@code live} until finalized, so weeks with
+	 * points &gt; 0 count as complete even when status is still live.
+	 */
 	private Gameweek resolveLatestScoredGameweek(Long teamId, Long competitionId) {
 		List<Gameweek> weeks = gameweekRepository.findByCompetition_IdOrderByNumberAsc(competitionId);
+		List<TeamGameweekScore> scores =
+				teamScoreRepository.findByFantasyTeam_IdOrderByGameweek_NumberAsc(teamId);
+		Map<Long, TeamGameweekScore> scoreByWeekId = scores.stream()
+				.collect(java.util.stream.Collectors.toMap(
+						score -> score.getGameweek().getId(),
+						score -> score,
+						(left, right) -> right));
+
 		for (int i = weeks.size() - 1; i >= 0; i--) {
 			Gameweek week = weeks.get(i);
-			if (!"finished".equalsIgnoreCase(week.getStatus())) {
+			if (squadPickRepository.findByFantasyTeam_IdAndGameweek_Id(teamId, week.getId()).isEmpty()) {
 				continue;
 			}
-			if (!squadPickRepository.findByFantasyTeam_IdAndGameweek_Id(teamId, week.getId()).isEmpty()) {
+			if (isScoringComplete(week, scoreByWeekId.get(week.getId()))) {
 				return week;
 			}
 		}
-		List<TeamGameweekScore> scores =
-				teamScoreRepository.findByFantasyTeam_IdOrderByGameweek_NumberAsc(teamId);
 		for (int i = scores.size() - 1; i >= 0; i--) {
 			TeamGameweekScore score = scores.get(i);
 			if (score.getPoints() != null && score.getPoints().compareTo(BigDecimal.ZERO) > 0) {
@@ -198,6 +315,14 @@ public class HomePageService {
 			return scores.get(scores.size() - 1).getGameweek();
 		}
 		return null;
+	}
+
+	/** Finished status, or any week that already posted points (incomplete open shells stay out). */
+	private static boolean isScoringComplete(Gameweek week, TeamGameweekScore score) {
+		if (week.getStatus() != null && "finished".equalsIgnoreCase(week.getStatus())) {
+			return true;
+		}
+		return score != null && score.getPoints() != null && score.getPoints().compareTo(BigDecimal.ZERO) > 0;
 	}
 
 	private static String displayBrandName(String brandKey, String fallback) {

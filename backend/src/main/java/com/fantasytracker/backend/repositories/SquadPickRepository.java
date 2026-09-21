@@ -11,6 +11,8 @@ public interface SquadPickRepository extends JpaRepository<SquadPick, Long> {
 
 	List<SquadPick> findByFantasyTeam_IdAndGameweek_Id(Long fantasyTeamId, Long gameweekId);
 
+	List<SquadPick> findByFantasyTeam_Id(Long fantasyTeamId);
+
 	Optional<SquadPick> findByFantasyTeam_IdAndPlayer_IdAndGameweek_Id(
 			Long fantasyTeamId, Long playerId, Long gameweekId);
 

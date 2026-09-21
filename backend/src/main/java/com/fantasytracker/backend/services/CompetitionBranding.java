@@ -69,6 +69,12 @@ public final class CompetitionBranding {
 		return country == null ? null : country.name();
 	}
 
+	/** MLS + Brasileirão (and any future Americas brands) for home season tables. */
+	public static boolean isAmericas(String source, String externalId) {
+		String country = countryName(source, externalId);
+		return "USA".equals(country) || "Brazil".equals(country);
+	}
+
 	public static String primaryColor(String source, String externalId) {
 		Colors colors = colors(source, externalId);
 		return colors == null ? null : colors.primary();

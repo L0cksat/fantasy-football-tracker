@@ -273,6 +273,65 @@
         </table>
       </div>
 
+      @if (longestServingPlayer(); as veteran) {
+        <div class="gw-potw longest-serving">
+          <div class="gw-potw-head">
+            <h3>Longest serving player</h3>
+          </div>
+          <article
+            class="potw-card"
+            [ngStyle]="{
+              '--potw-primary': team.competition.primaryColor || '#b6f34a',
+              '--potw-secondary': team.competition.secondaryColor || '#eef6e8',
+            }"
+          >
+            <div class="potw-meta">
+              @if (team.competition.logoUrl) {
+                <img
+                  class="potw-comp-logo"
+                  [src]="team.competition.logoUrl"
+                  [alt]="team.competition.name"
+                  (error)="hideImage($event)"
+                />
+              }
+              <div>
+                <span class="potw-comp-name">{{ team.competition.name }}</span>
+              </div>
+            </div>
+
+            <div class="portrait-stage">
+              @if (veteran.playerPortraitUrl) {
+                <img
+                  class="portrait"
+                  [src]="veteran.playerPortraitUrl"
+                  [alt]="veteran.name"
+                  (error)="hideImage($event)"
+                />
+              } @else {
+                <div class="portrait portrait-fallback" aria-hidden="true"></div>
+              }
+              @if (veteran.clubCrestUrl) {
+                <img
+                  class="crest"
+                  [src]="veteran.clubCrestUrl"
+                  [alt]="veteran.club || 'Club crest'"
+                  (error)="hideImage($event)"
+                />
+              }
+            </div>
+
+            <div class="player-copy">
+              <span class="shirt">{{ longestServingShirt(veteran) }}</span>
+              <strong class="name">{{ veteran.name }}</strong>
+              <span class="club">{{ veteran.club || '—' }}</span>
+              <span class="gw-label">
+                {{ veteran.gameweeksStarted }} GW · {{ veteran.totalPoints | number: '1.0-1' }} pts
+              </span>
+            </div>
+          </article>
+        </div>
+      }
+
       @if (team.transfers.length || mostExpensivePurchase() || highestPlayerSale()) {
         <h3>Transfers</h3>
         @if (!isOfficialLaLiga() && team.transferPenalty > 0) {
@@ -473,6 +532,11 @@
                 <strong>{{ market.week.soldReleaseClause.count }}</strong>
                 <em>{{ market.week.soldReleaseClause.total | number: priceFormat() }}M€</em>
               </article>
+              <article class="market-total">
+                <span>Total sold</span>
+                <strong>{{ totalSold(market.week).count }}</strong>
+                <em>{{ totalSold(market.week).total | number: priceFormat() }}M€</em>
+              </article>
               <article>
                 <span>Bought from Market</span>
                 <strong>{{ market.week.boughtFromMarket.count }}</strong>
@@ -482,6 +546,11 @@
                 <span>Release clauses paid</span>
                 <strong>{{ market.week.boughtReleaseClause.count }}</strong>
                 <em>{{ market.week.boughtReleaseClause.total | number: priceFormat() }}M€</em>
+              </article>
+              <article class="market-total">
+                <span>Total bought</span>
+                <strong>{{ totalBought(market.week).count }}</strong>
+                <em>{{ totalBought(market.week).total | number: priceFormat() }}M€</em>
               </article>
             </div>
             @if (market.week.soldTo.length) {
@@ -504,6 +573,13 @@
                       </tr>
                     }
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>Total</td>
+                      <td class="num">{{ counterpartTotals(market.week.soldTo).count }}</td>
+                      <td class="num">{{ counterpartTotals(market.week.soldTo).total | number: priceFormat() }}M€</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             }
@@ -527,6 +603,13 @@
                       </tr>
                     }
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>Total</td>
+                      <td class="num">{{ counterpartTotals(market.week.boughtFrom).count }}</td>
+                      <td class="num">{{ counterpartTotals(market.week.boughtFrom).total | number: priceFormat() }}M€</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             }
@@ -544,6 +627,11 @@
                 <strong>{{ market.season.soldReleaseClause.count }}</strong>
                 <em>{{ market.season.soldReleaseClause.total | number: priceFormat() }}M€</em>
               </article>
+              <article class="market-total">
+                <span>Total sold</span>
+                <strong>{{ totalSold(market.season).count }}</strong>
+                <em>{{ totalSold(market.season).total | number: priceFormat() }}M€</em>
+              </article>
               <article>
                 <span>Bought from Market</span>
                 <strong>{{ market.season.boughtFromMarket.count }}</strong>
@@ -553,6 +641,11 @@
                 <span>Release clauses paid</span>
                 <strong>{{ market.season.boughtReleaseClause.count }}</strong>
                 <em>{{ market.season.boughtReleaseClause.total | number: priceFormat() }}M€</em>
+              </article>
+              <article class="market-total">
+                <span>Total bought</span>
+                <strong>{{ totalBought(market.season).count }}</strong>
+                <em>{{ totalBought(market.season).total | number: priceFormat() }}M€</em>
               </article>
             </div>
             @if (market.season.soldTo.length) {
@@ -575,6 +668,13 @@
                       </tr>
                     }
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>Total</td>
+                      <td class="num">{{ counterpartTotals(market.season.soldTo).count }}</td>
+                      <td class="num">{{ counterpartTotals(market.season.soldTo).total | number: priceFormat() }}M€</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             }
@@ -598,6 +698,13 @@
                       </tr>
                     }
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>Total</td>
+                      <td class="num">{{ counterpartTotals(market.season.boughtFrom).count }}</td>
+                      <td class="num">{{ counterpartTotals(market.season.boughtFrom).total | number: priceFormat() }}M€</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             }

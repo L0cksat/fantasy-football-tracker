@@ -7,6 +7,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
+from collector.adapters.sofascore import _browser_headers, _http_get
 from collector.models import (
     PickPayload,
     PlayerPayload,
@@ -22,6 +23,9 @@ EXTERNAL_ID = "oficial"
 DEFAULT_NAME = "LaLiga Fantasy"
 DEFAULT_SLUG = "laliga-fantasy-oficial"
 DEFAULT_SEASON = "2026/27"
+
+# SofaScore player/{id} jersey lookups — shared across every squad row in one import.
+_SHIRT_CACHE: dict[str, int | None] = {}
 
 _SQUADS_HEADERS = (
     "gameweek",
@@ -59,6 +63,7 @@ def load_workbook_payloads(
     gameweek: int | None = None,
 ) -> tuple[list[Snapshot], TransfersBatch | None]:
     """Read the official LaLiga Fantasy template into ingest snapshots."""
+    _SHIRT_CACHE.clear()
     workbook = load_workbook(Path(path), data_only=True, read_only=True)
     try:
         competition, team = _competition_and_team(workbook)
@@ -182,6 +187,7 @@ def _pick_from_row(row: dict[str, Any]) -> PickPayload:
             position=_position(row.get("position")),
             club=_optional_text(row.get("club")),
             clubExternalId=club_id,
+            shirtNumber=_shirt_number_from_sofascore(player_id),
         ),
         role=_role(row.get("role")),
         points=_optional_float(row.get("points")) or 0,
@@ -191,6 +197,34 @@ def _pick_from_row(row: dict[str, Any]) -> PickPayload:
         price=_optional_float(row.get("price")),
         injured=_injured(row.get("injured")),
     )
+
+
+def _shirt_number_from_sofascore(player_id: str | None) -> int | None:
+    """Jersey from SofaScore player profile when the workbook has a numeric SofaScore ID."""
+    if not player_id or not str(player_id).isdigit():
+        return None
+    pid = str(player_id)
+    if pid in _SHIRT_CACHE:
+        return _SHIRT_CACHE[pid]
+    try:
+        response = _http_get(
+            f"https://www.sofascore.com/api/v1/player/{pid}",
+            headers=_browser_headers(""),
+            timeout=12,
+        )
+        if response.status_code == 200:
+            player = (response.json() or {}).get("player") or {}
+            raw = player.get("jerseyNumber")
+            if raw is None:
+                raw = player.get("shirtNumber")
+            if raw is not None and str(raw).strip() != "":
+                number = int(float(raw))
+                _SHIRT_CACHE[pid] = number
+                return number
+    except Exception:
+        pass
+    _SHIRT_CACHE[pid] = None
+    return None
 
 
 def _deal_from_row(row: dict[str, Any]) -> TransferPair:

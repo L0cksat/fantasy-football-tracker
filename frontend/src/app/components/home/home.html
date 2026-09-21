@@ -88,6 +88,128 @@
           </div>
         }
       </section>
+
+      @if (page.latestWeekStandings.length || page.europeTotalStandings.length || page.americasTotalStandings.length) {
+        <section class="standings">
+          @if (page.latestWeekStandings.length) {
+            <div class="standings-block">
+              <div class="potw-head">
+                <h2>Latest week table</h2>
+                <p>Your competitions ranked by points in each league’s latest scored gameweek.</p>
+              </div>
+              <div class="standings-table" role="table" aria-label="Latest week league table">
+                <div class="standings-head" role="row">
+                  <span role="columnheader">#</span>
+                  <span role="columnheader">League</span>
+                  <span role="columnheader">GW</span>
+                  <span role="columnheader">Pts</span>
+                </div>
+                @for (row of page.latestWeekStandings; track row.competitionId) {
+                  <a
+                    class="standings-row"
+                    role="row"
+                    [routerLink]="['/leagues']"
+                    [queryParams]="{ competition: row.competitionId }"
+                    [ngStyle]="{
+                      '--row-primary': row.primaryColor || '#b6f34a',
+                      '--row-secondary': row.secondaryColor || '#eef6e8',
+                    }"
+                  >
+                    <span class="standings-rank" role="cell">{{ row.rank }}</span>
+                    <span class="standings-league" role="cell">
+                      @if (row.logoUrl) {
+                        <img [src]="row.logoUrl" [alt]="" (error)="hideImage($event)" />
+                      }
+                      <strong>{{ row.competitionName }}</strong>
+                    </span>
+                    <span class="standings-gw" role="cell">{{ row.gameweek != null ? 'GW' + row.gameweek : '—' }}</span>
+                    <span class="standings-pts" role="cell">{{ row.points | number: '1.0-1' }}</span>
+                  </a>
+                }
+              </div>
+            </div>
+          }
+
+          @if (page.europeTotalStandings.length || page.americasTotalStandings.length) {
+            <div class="standings-season">
+              <div class="potw-head">
+                <h2>Season totals</h2>
+                <p>Cumulative points across finished weeks, split by region.</p>
+              </div>
+
+              <div class="standings-split">
+                @if (page.europeTotalStandings.length) {
+                  <div class="standings-block">
+                    <h3>Europe</h3>
+                    <div class="standings-table" role="table" aria-label="Europe season totals">
+                      <div class="standings-head standings-head-season" role="row">
+                        <span role="columnheader">#</span>
+                        <span role="columnheader">League</span>
+                        <span role="columnheader">Pts</span>
+                      </div>
+                      @for (row of page.europeTotalStandings; track row.competitionId) {
+                        <a
+                          class="standings-row standings-row-season"
+                          role="row"
+                          [routerLink]="['/leagues']"
+                          [queryParams]="{ competition: row.competitionId }"
+                          [ngStyle]="{
+                            '--row-primary': row.primaryColor || '#b6f34a',
+                            '--row-secondary': row.secondaryColor || '#eef6e8',
+                          }"
+                        >
+                          <span class="standings-rank" role="cell">{{ row.rank }}</span>
+                          <span class="standings-league" role="cell">
+                            @if (row.logoUrl) {
+                              <img [src]="row.logoUrl" [alt]="" (error)="hideImage($event)" />
+                            }
+                            <strong>{{ row.competitionName }}</strong>
+                          </span>
+                          <span class="standings-pts" role="cell">{{ row.points | number: '1.0-1' }}</span>
+                        </a>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (page.americasTotalStandings.length) {
+                  <div class="standings-block">
+                    <h3>Americas</h3>
+                    <div class="standings-table" role="table" aria-label="Americas season totals">
+                      <div class="standings-head standings-head-season" role="row">
+                        <span role="columnheader">#</span>
+                        <span role="columnheader">League</span>
+                        <span role="columnheader">Pts</span>
+                      </div>
+                      @for (row of page.americasTotalStandings; track row.competitionId) {
+                        <a
+                          class="standings-row standings-row-season"
+                          role="row"
+                          [routerLink]="['/leagues']"
+                          [queryParams]="{ competition: row.competitionId }"
+                          [ngStyle]="{
+                            '--row-primary': row.primaryColor || '#b6f34a',
+                            '--row-secondary': row.secondaryColor || '#eef6e8',
+                          }"
+                        >
+                          <span class="standings-rank" role="cell">{{ row.rank }}</span>
+                          <span class="standings-league" role="cell">
+                            @if (row.logoUrl) {
+                              <img [src]="row.logoUrl" [alt]="" (error)="hideImage($event)" />
+                            }
+                            <strong>{{ row.competitionName }}</strong>
+                          </span>
+                          <span class="standings-pts" role="cell">{{ row.points | number: '1.0-1' }}</span>
+                        </a>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </section>
+      }
     }
   </div>
 </section>

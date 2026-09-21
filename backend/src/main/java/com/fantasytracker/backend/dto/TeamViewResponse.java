@@ -13,7 +13,8 @@ public record TeamViewResponse(
 		BigDecimal transferPenalty,
 		List<PickView> picks,
 		List<TransferView> transfers,
-		TransferMarketSummary transferMarket) {
+		TransferMarketSummary transferMarket,
+		LongestServingPlayer longestServingPlayer) {
 
 	public record CompetitionSummary(
 			Long id,
@@ -105,5 +106,18 @@ public record TeamViewResponse(
 	}
 
 	public record CounterpartGroup(String name, int count, BigDecimal total) {
+	}
+
+	public record LongestServingPlayer(
+			Long playerId,
+			String externalId,
+			String name,
+			String playerPortraitUrl,
+			String position,
+			String club,
+			String clubCrestUrl,
+			Integer shirtNumber,
+			int gameweeksStarted,
+			BigDecimal totalPoints) {
 	}
 }

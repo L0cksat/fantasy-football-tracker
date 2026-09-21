@@ -9,6 +9,6 @@ public record TotalsResponse(
 		BigDecimal totalPoints,
 		List<GameweekTotal> gameweeks) {
 
-	public record GameweekTotal(Integer number, String name, BigDecimal points) {
+	public record GameweekTotal(Integer number, String name, String status, BigDecimal points) {
 	}
 }

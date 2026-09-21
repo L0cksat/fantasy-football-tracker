@@ -14,10 +14,19 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestPropertySource(properties = {
+		"spring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE",
+		"spring.datasource.username=sa",
+		"spring.datasource.password=",
+		"spring.datasource.driver-class-name=org.h2.Driver",
+		"spring.jpa.hibernate.ddl-auto=create-drop",
+		"spring.jpa.database-platform=org.hibernate.dialect.H2Dialect"
+})
 class ApiSliceTest {
 
 	@Autowired
@@ -408,7 +417,10 @@ class ApiSliceTest {
 				.andExpect(jsonPath("$.transferMarket.mostExpensivePurchase.name").value("Lamine Yamal"))
 				.andExpect(jsonPath("$.transferMarket.mostExpensivePurchase.price").value(18.0))
 				.andExpect(jsonPath("$.transferMarket.highestSale.name").value("Joselu"))
-				.andExpect(jsonPath("$.transferMarket.highestSale.price").value(9.0));
+				.andExpect(jsonPath("$.transferMarket.highestSale.price").value(9.0))
+				.andExpect(jsonPath("$.longestServingPlayer.name").value("Kylian Mbappé"))
+				.andExpect(jsonPath("$.longestServingPlayer.gameweeksStarted").value(1))
+				.andExpect(jsonPath("$.longestServingPlayer.totalPoints").value(10.0));
 	}
 
 	@Test
