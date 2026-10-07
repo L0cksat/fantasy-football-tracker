@@ -420,7 +420,10 @@ class ApiSliceTest {
 				.andExpect(jsonPath("$.transferMarket.highestSale.price").value(9.0))
 				.andExpect(jsonPath("$.longestServingPlayer.name").value("Kylian Mbappé"))
 				.andExpect(jsonPath("$.longestServingPlayer.gameweeksStarted").value(1))
-				.andExpect(jsonPath("$.longestServingPlayer.totalPoints").value(10.0));
+				.andExpect(jsonPath("$.longestServingPlayer.totalPoints").value(10.0))
+				.andExpect(jsonPath("$.allTimeHighestScorer.name").value("Kylian Mbappé"))
+				.andExpect(jsonPath("$.allTimeHighestScorer.totalPoints").value(10.0))
+				.andExpect(jsonPath("$.seasonPlayerTotals[0].name").value("Kylian Mbappé"));
 	}
 
 	@Test

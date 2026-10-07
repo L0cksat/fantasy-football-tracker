@@ -3,14 +3,18 @@ package com.fantasytracker.backend.services;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fantasytracker.backend.dto.HomePageResponse;
+import com.fantasytracker.backend.dto.HomePageResponse.AllTimeHighestScorer;
 import com.fantasytracker.backend.dto.HomePageResponse.LeagueBrand;
 import com.fantasytracker.backend.dto.HomePageResponse.LeagueStanding;
 import com.fantasytracker.backend.dto.HomePageResponse.PlayerOfTheWeek;
@@ -75,6 +79,7 @@ public class HomePageService {
 
 		Map<String, LeagueBrand> brands = new LinkedHashMap<>();
 		List<PlayerOfTheWeek> potw = new ArrayList<>();
+		List<AllTimeHighestScorer> seasonLeaders = new ArrayList<>();
 		List<LeagueStanding> weekly = new ArrayList<>();
 		List<LeagueStanding> europe = new ArrayList<>();
 		List<LeagueStanding> americas = new ArrayList<>();
@@ -97,6 +102,11 @@ public class HomePageService {
 			PlayerOfTheWeek winner = playerOfTheWeek(competition);
 			if (winner != null) {
 				potw.add(winner);
+			}
+
+			AllTimeHighestScorer seasonLeader = allTimeHighestScorer(competition);
+			if (seasonLeader != null) {
+				seasonLeaders.add(seasonLeader);
 			}
 
 			FantasyTeam team = fantasyTeamRepository.findByCompetition_Id(competition.getId()).orElse(null);
@@ -125,6 +135,7 @@ public class HomePageService {
 				defaultSlug,
 				List.copyOf(brands.values()),
 				List.copyOf(potw),
+				List.copyOf(seasonLeaders),
 				rankStandings(weekly),
 				rankStandings(europe),
 				rankStandings(americas));
@@ -282,6 +293,113 @@ public class HomePageService {
 	}
 
 	/**
+	 * Highest captain-effective season total among players who appeared in the squad
+	 * (starter or bench) for this competition’s tracked team.
+	 */
+	private AllTimeHighestScorer allTimeHighestScorer(Competition competition) {
+		FantasyTeam team = fantasyTeamRepository.findByCompetition_Id(competition.getId()).orElse(null);
+		if (team == null) {
+			return null;
+		}
+		List<SquadPick> picks = squadPickRepository.findByFantasyTeam_Id(team.getId());
+		if (picks.isEmpty()) {
+			return null;
+		}
+
+		Map<Long, Boolean> tripleByGameweek = new HashMap<>();
+		for (TeamGameweekScore score :
+				teamScoreRepository.findByFantasyTeam_IdOrderByGameweek_NumberAsc(team.getId())) {
+			tripleByGameweek.put(score.getGameweek().getId(), score.isTripleCaptain());
+		}
+
+		Map<Long, List<SquadPick>> picksByPlayer = new HashMap<>();
+		for (SquadPick pick : picks) {
+			picksByPlayer.computeIfAbsent(pick.getPlayer().getId(), ignored -> new ArrayList<>()).add(pick);
+		}
+
+		Set<Long> playerIds = picksByPlayer.keySet();
+		Set<Long> gameweekIds = picks.stream()
+				.map(pick -> pick.getGameweek().getId())
+				.collect(Collectors.toSet());
+		Map<String, BigDecimal> pointsByPair = new HashMap<>();
+		if (!playerIds.isEmpty() && !gameweekIds.isEmpty()) {
+			for (PlayerGameweekScore score : playerScoreRepository.findByPlayer_IdInAndGameweek_IdIn(
+					playerIds, gameweekIds)) {
+				pointsByPair.put(
+						score.getPlayer().getId() + ":" + score.getGameweek().getId(),
+						score.getPoints() != null ? score.getPoints() : BigDecimal.ZERO);
+			}
+		}
+
+		SquadPick bestLatest = null;
+		BigDecimal bestTotal = null;
+		int bestGameweeks = 0;
+		for (Map.Entry<Long, List<SquadPick>> entry : picksByPlayer.entrySet()) {
+			List<SquadPick> playerPicks = entry.getValue();
+			BigDecimal total = BigDecimal.ZERO;
+			SquadPick latest = null;
+			for (SquadPick pick : playerPicks) {
+				BigDecimal raw = pointsByPair.getOrDefault(
+						pick.getPlayer().getId() + ":" + pick.getGameweek().getId(),
+						BigDecimal.ZERO);
+				boolean triple = Boolean.TRUE.equals(tripleByGameweek.get(pick.getGameweek().getId()));
+				total = total.add(CaptainScoring.effective(raw, pick.isCaptain(), triple));
+				if (latest == null
+						|| pick.getGameweek().getNumber() > latest.getGameweek().getNumber()) {
+					latest = pick;
+				}
+			}
+			if (latest == null) {
+				continue;
+			}
+			if (bestTotal == null
+					|| total.compareTo(bestTotal) > 0
+					|| (total.compareTo(bestTotal) == 0
+							&& latest.getPlayer().getName().compareToIgnoreCase(bestLatest.getPlayer().getName()) < 0)) {
+				bestTotal = total;
+				bestLatest = latest;
+				bestGameweeks = playerPicks.size();
+			}
+		}
+		if (bestLatest == null || bestTotal == null) {
+			return null;
+		}
+
+		Player player = bestLatest.getPlayer();
+		String club = bestLatest.getClub() != null && !bestLatest.getClub().isBlank()
+				? bestLatest.getClub()
+				: player.getClub();
+		String clubExternalId = bestLatest.getClubExternalId() != null && !bestLatest.getClubExternalId().isBlank()
+				? bestLatest.getClubExternalId()
+				: player.getClubExternalId();
+		Integer shirtNumber = bestLatest.getShirtNumber() != null
+				? bestLatest.getShirtNumber()
+				: player.getShirtNumber();
+		String logo = CompetitionBranding.logoDarkUrl(competition.getSource(), competition.getExternalId());
+		if (logo == null) {
+			logo = CompetitionBranding.logoUrl(competition.getSource(), competition.getExternalId());
+		}
+
+		return new AllTimeHighestScorer(
+				competition.getId(),
+				competition.getName(),
+				competition.getSlug(),
+				logo,
+				CompetitionBranding.primaryColor(competition.getSource(), competition.getExternalId()),
+				CompetitionBranding.secondaryColor(competition.getSource(), competition.getExternalId()),
+				player.getId(),
+				player.getExternalId(),
+				player.getName(),
+				shirtNumber,
+				player.getPosition(),
+				club,
+				PlayerPortraits.url(competition.getSource(), player.getExternalId()),
+				ClubCrests.url(competition.getSource(), clubExternalId, club),
+				bestGameweeks,
+				bestTotal);
+	}
+
+	/**
 	 * Prefer the latest week that has finished scoring and has a squad.
 	 * SofaScore often leaves prior rounds as {@code live} until finalized, so weeks with
 	 * points &gt; 0 count as complete even when status is still live.
@@ -334,6 +452,7 @@ public class HomePageService {
 			case "35" -> "Bundesliga";
 			case "7" -> "Champions League";
 			case "679" -> "Europa League";
+			case "17015" -> "Conference League";
 			case "10783" -> "Nations League";
 			case "242" -> "MLS";
 			case "325" -> "Brasileirão";

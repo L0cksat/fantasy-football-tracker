@@ -20,6 +20,7 @@ export interface HomePage {
   defaultCompetitionSlug: string;
   leagueBrands: LeagueBrand[];
   playersOfTheWeek: PlayerOfTheWeek[];
+  allTimeHighestScorers: AllTimeHighestScorer[];
   latestWeekStandings: LeagueStanding[];
   europeTotalStandings: LeagueStanding[];
   americasTotalStandings: LeagueStanding[];
@@ -67,6 +68,25 @@ export interface PlayerOfTheWeek {
   points: number;
 }
 
+export interface AllTimeHighestScorer {
+  competitionId: number;
+  competitionName: string;
+  competitionSlug: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  playerId: number;
+  externalId: string;
+  name: string;
+  shirtNumber: number | null;
+  position: string | null;
+  club: string | null;
+  playerPortraitUrl: string | null;
+  clubCrestUrl: string | null;
+  gameweeksPlayed: number;
+  totalPoints: number;
+}
+
 export interface TeamView {
   competition: {
     id: number;
@@ -95,6 +115,21 @@ export interface TeamView {
   transfers: TransferView[];
   transferMarket: TransferMarketSummary | null;
   longestServingPlayer: LongestServingPlayer | null;
+  seasonPlayerTotals: SeasonPlayerTotal[];
+  allTimeHighestScorer: SeasonPlayerTotal | null;
+}
+
+export interface SeasonPlayerTotal {
+  playerId: number;
+  externalId: string;
+  name: string;
+  playerPortraitUrl: string | null;
+  position: string | null;
+  club: string | null;
+  clubCrestUrl: string | null;
+  shirtNumber: number | null;
+  gameweeksPlayed: number;
+  totalPoints: number;
 }
 
 export interface LongestServingPlayer {

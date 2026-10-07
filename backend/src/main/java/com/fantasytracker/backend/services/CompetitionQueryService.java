@@ -78,7 +78,7 @@ public class CompetitionQueryService {
 		if (gameweeks.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No gameweeks ingested yet");
 		}
-		Gameweek gameweek = resolveGameweek(gameweeks, gameweekNumber);
+		Gameweek gameweek = resolveGameweek(team.getId(), gameweeks, gameweekNumber);
 		return buildTeamView(competition, team, gameweek);
 	}
 
@@ -235,6 +235,9 @@ public class CompetitionQueryService {
 				})
 				.toList();
 		BigDecimal teamPoints = teamScore != null ? teamScore.getPoints() : BigDecimal.ZERO;
+		List<TeamViewResponse.SeasonPlayerTotal> seasonTotals = buildSeasonPlayerTotals(competition, team);
+		TeamViewResponse.SeasonPlayerTotal allTimeHighest =
+				seasonTotals.isEmpty() ? null : seasonTotals.get(0);
 		return new TeamViewResponse(
 				new TeamViewResponse.CompetitionSummary(
 						competition.getId(),
@@ -257,7 +260,88 @@ public class CompetitionQueryService {
 				pickViews,
 				buildTransfers(competition, team, gameweek),
 				buildTransferMarket(competition, team, gameweek),
-				findLongestServingPlayer(competition, team));
+				findLongestServingPlayer(competition, team),
+				seasonTotals,
+				allTimeHighest);
+	}
+
+	/**
+	 * Captain-effective points for every player who appeared in the squad (starter or bench),
+	 * sorted highest total first. Presentation (club/shirt) uses the latest week they were picked.
+	 */
+	private List<TeamViewResponse.SeasonPlayerTotal> buildSeasonPlayerTotals(
+			Competition competition,
+			FantasyTeam team) {
+		List<SquadPick> picks = squadPickRepository.findByFantasyTeam_Id(team.getId());
+		if (picks.isEmpty()) {
+			return List.of();
+		}
+
+		Map<Long, Boolean> tripleByGameweek = new HashMap<>();
+		for (TeamGameweekScore score :
+				teamScoreRepository.findByFantasyTeam_IdOrderByGameweek_NumberAsc(team.getId())) {
+			tripleByGameweek.put(score.getGameweek().getId(), score.isTripleCaptain());
+		}
+
+		Map<Long, List<SquadPick>> picksByPlayer = new HashMap<>();
+		for (SquadPick pick : picks) {
+			picksByPlayer.computeIfAbsent(pick.getPlayer().getId(), ignored -> new ArrayList<>()).add(pick);
+		}
+
+		Set<Long> playerIds = picksByPlayer.keySet();
+		Set<Long> gameweekIds = picks.stream()
+				.map(pick -> pick.getGameweek().getId())
+				.collect(Collectors.toSet());
+		Map<String, BigDecimal> pointsByPair = new HashMap<>();
+		if (!playerIds.isEmpty() && !gameweekIds.isEmpty()) {
+			for (PlayerGameweekScore score : playerScoreRepository.findByPlayer_IdInAndGameweek_IdIn(
+					playerIds, gameweekIds)) {
+				pointsByPair.put(
+						score.getPlayer().getId() + ":" + score.getGameweek().getId(),
+						score.getPoints() != null ? score.getPoints() : BigDecimal.ZERO);
+			}
+		}
+
+		List<TeamViewResponse.SeasonPlayerTotal> totals = new ArrayList<>();
+		for (Map.Entry<Long, List<SquadPick>> entry : picksByPlayer.entrySet()) {
+			List<SquadPick> playerPicks = entry.getValue();
+			BigDecimal total = BigDecimal.ZERO;
+			SquadPick latest = null;
+			for (SquadPick pick : playerPicks) {
+				BigDecimal raw = pointsByPair.getOrDefault(
+						pick.getPlayer().getId() + ":" + pick.getGameweek().getId(),
+						BigDecimal.ZERO);
+				boolean triple = Boolean.TRUE.equals(tripleByGameweek.get(pick.getGameweek().getId()));
+				total = total.add(CaptainScoring.effective(raw, pick.isCaptain(), triple));
+				if (latest == null
+						|| pick.getGameweek().getNumber() > latest.getGameweek().getNumber()) {
+					latest = pick;
+				}
+			}
+			if (latest == null) {
+				continue;
+			}
+			Player player = latest.getPlayer();
+			String club = clubOf(latest);
+			String clubExternalId = clubExternalIdOf(latest);
+			totals.add(new TeamViewResponse.SeasonPlayerTotal(
+					player.getId(),
+					player.getExternalId(),
+					player.getName(),
+					PlayerPortraits.url(competition.getSource(), player.getExternalId()),
+					player.getPosition(),
+					club,
+					ClubCrests.url(competition.getSource(), clubExternalId, club),
+					shirtNumberOf(latest),
+					playerPicks.size(),
+					total));
+		}
+
+		totals.sort(Comparator
+				.comparing(TeamViewResponse.SeasonPlayerTotal::totalPoints)
+				.reversed()
+				.thenComparing(TeamViewResponse.SeasonPlayerTotal::name, String.CASE_INSENSITIVE_ORDER));
+		return List.copyOf(totals);
 	}
 
 	/**
@@ -660,14 +744,27 @@ public class CompetitionQueryService {
 		return score != null && score.getPoints() != null ? score.getPoints() : BigDecimal.ZERO;
 	}
 
-	private Gameweek resolveGameweek(List<Gameweek> gameweeks, Integer requested) {
-		if (requested == null) {
-			return gameweeks.get(gameweeks.size() - 1);
+	private Gameweek resolveGameweek(Long teamId, List<Gameweek> gameweeks, Integer requested) {
+		if (requested != null) {
+			return gameweeks.stream()
+					.filter(gw -> gw.getNumber().equals(requested))
+					.findFirst()
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gameweek not found"));
 		}
-		return gameweeks.stream()
-				.filter(gw -> gw.getNumber().equals(requested))
-				.findFirst()
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Gameweek not found"));
+		// Default to latest week that already posted points (skip empty upcoming shells).
+		List<TeamGameweekScore> scores =
+				teamScoreRepository.findByFantasyTeam_IdOrderByGameweek_NumberAsc(teamId);
+		for (int i = scores.size() - 1; i >= 0; i--) {
+			TeamGameweekScore score = scores.get(i);
+			if (score.getPoints() != null && score.getPoints().compareTo(BigDecimal.ZERO) > 0) {
+				return score.getGameweek();
+			}
+			String status = score.getGameweek().getStatus();
+			if (status != null && status.equalsIgnoreCase("finished")) {
+				return score.getGameweek();
+			}
+		}
+		return gameweeks.get(gameweeks.size() - 1);
 	}
 
 	private Competition requireCompetition(Long id) {

@@ -10,17 +10,25 @@
 
 Personal SofaScore Fantasy tracker: Python collector → Spring Boot + MySQL → Angular dashboard.
 
-The dashboard shows your squad, captain chips, club crests, player portraits, week-vs-week compare, season totals, transfers, **Injured** / **Suspended** status chips, and season high/low gameweek cards (lowest excludes unfinished open shells). The homepage adds Players of the Week plus **latest-week** and **Europe / Americas season** league tables. Official LaLiga Fantasy (Desafío) also highlights most expensive purchase / highest sale, **Longest serving player**, and market **Total sold / Total bought** plus manager-table footers.
+The dashboard shows your squad, captain chips, club crests, player portraits, week-vs-week compare, season totals, transfers, **Injured** / **Suspended** status chips, and season high/low gameweek cards (lowest excludes unfinished open shells). Each competition also has a **Player of the week** card beside an **All time Highest scorer**, plus a **Total points scored** table (current XI + bench, captain-effective season sums, club crests / Nations League national badges). The homepage pairs **MVP** (top weekly standout) with **GOAT** (cross-league season leader), then GSAP marquees for Players of the Week and **Highest all-time points scorers** per league, plus **latest-week** and **Europe / Americas season** league tables. Official LaLiga Fantasy (Desafío) also highlights most expensive purchase / highest sale, **Longest serving player**, and market **Total sold / Total bought** plus manager-table footers.
 
 ## Screenshots
 
-Homepage with MVP and competition wash:
+Homepage — MVP and GOAT feature cards (competition wash behind):
 
-![Homepage — players of the week](docs/screenshots/home.png)
+![Homepage — MVP and GOAT](docs/screenshots/home.png)
 
-Competition dashboard (squad, totals, player of the week):
+Highest all-time points scorers marquee (GSAP — same loop as POTW, pauses on hover):
 
-![Competition dashboard](docs/screenshots/leagues.png)
+![All-time scorers marquee](docs/screenshots/home-goat-marquee.png)
+
+Competition dashboard — Player of the week beside All time Highest scorer:
+
+![Competition all-time scorer](docs/screenshots/leagues-all-time-scorer.png)
+
+Total points scored (current squad + bench, highest first, with crests):
+
+![Total points scored table](docs/screenshots/season-totals-table.png)
 
 Players of the week marquee (GSAP — pauses on hover):
 
@@ -38,9 +46,7 @@ Official LaLiga — most expensive purchase and highest sale (POTW-style cards i
 
 ![LaLiga transfer highlights](docs/screenshots/laliga-transfer-highlights.png)
 
-Homepage league tables (latest week + regional season totals):
-
-League standings live on `/` under Players of the week (API: `latestWeekStandings`, `europeTotalStandings`, `americasTotalStandings`).
+Homepage league tables (latest week + regional season totals) sit under the marquees (API: `latestWeekStandings`, `europeTotalStandings`, `americasTotalStandings`).
 
 ## Layout
 
@@ -90,18 +96,20 @@ python -m collector pull
 
 Weekly Windows task (Monday 21:00): `powershell -ExecutionPolicy Bypass -File collector\register-weekly-task.ps1`
 
-The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull` fetches every competition that has URLs in `.env` (Premier League, LaLiga, Serie A, Ligue 1, Bundesliga, Champions League, Europa League, Nations League, MLS, Brasileirão) plus official Premier League Fantasy when `FPL_ENTRY_ID` is set and official WSL Fantasy when `WSL_GAME_TOKEN` + `WSL_GAMEPLAY_ID` are set. HTTP 401 means refresh `SOFASCORE_SESSION` (SofaScore) or `WSL_GAME_TOKEN` (`x-game-token` from the my-team XHR, not Auth0 Bearer). Official FPL uses the public JSON API (team id from `/entry/{id}/event/1`); no cookie. Official LaLiga Fantasy is app-only (100M€ market, starting XI + squad, independent buys/sells, no captains): fill `collector/templates/laliga-fantasy-oficial.xlsx` and run `python -m collector import-excel`.
+The collector POSTs to Spring Boot. It does not log in or scrape the site. `pull` fetches every competition that has URLs in `.env` (Premier League, LaLiga, Serie A, Ligue 1, Bundesliga, Champions League, Europa League, Conference League, Nations League, MLS, Brasileirão) plus official Premier League Fantasy when `FPL_ENTRY_ID` is set and official WSL Fantasy when `WSL_GAME_TOKEN` + `WSL_GAMEPLAY_ID` are set. HTTP 401 means refresh `SOFASCORE_SESSION` (SofaScore) or `WSL_GAME_TOKEN` (`x-game-token` from the my-team XHR, not Auth0 Bearer). Official FPL uses the public JSON API (team id from `/entry/{id}/event/1`); no cookie. Official LaLiga Fantasy is app-only (100M€ market, starting XI + squad, independent buys/sells, no captains): fill `collector/templates/laliga-fantasy-oficial.xlsx` and run `python -m collector import-excel`.
 
 ## Scoring and media
 
 - SofaScore `fixtures[].score` is **raw**. Captain display is ×2, triple captain is ×3. Team week totals stay SofaScore’s `userRound.score` (already includes the chip). Official WSL `totalPoints` already includes captain ×2; the collector stores the raw half so the dashboard does not double it again.
 - Crests: SofaScore `https://img.sofascore.com/api/v1/team/{id}/image`; official FPL uses Premier League badge `t{code}.png`
 - Portraits: SofaScore `https://img.sofascore.com/api/v1/player/{id}/image` (official FPL maps names onto the Premier League season player list; official WSL maps onto unique-tournament 1044)
-- Competition logos: `https://img.sofascore.com/api/v1/unique-tournament/{id}/image` (same endpoint the main SofaScore tournament page uses; Champions League is 7, Europa League is 679, Nations League is 10783, MLS is 242, Brasileirão is 325, WSL is 1044)
+- Competition logos: `https://img.sofascore.com/api/v1/unique-tournament/{id}/image` (same endpoint the main SofaScore tournament page uses; Champions League is 7, Europa League is 679, Conference League is 17015, Nations League is 10783, MLS is 242, Brasileirão is 325, WSL is 1044)
 - Transfers: official SofaScore transfers JSON (paired in/out per round). Squad-diff is only a fallback if a week has no official rows.
 - **Injured / Suspended:** per-GW from SofaScore event lineups `missingPlayers` (injury vs yellow accumulation / red card / unavailable). Stored on `squad_pick` and shown as chips next to the player name.
 - **Season extremes:** Highest / Lowest Scoring Gameweek cards are derived from `GET …/totals` on the competition page. **Lowest** only considers finished weeks (or live weeks that already posted points &gt; 0), so open 0-pt shells like “GW6 not started” do not win.
-- **Homepage league tables:** `GET /api/v1/home` returns `latestWeekStandings` (ranked by each competition’s latest scored GW points) plus `europeTotalStandings` / `americasTotalStandings` (season totals; Americas = MLS + Brasileirão).
+- **Season player totals:** `GET …/team` returns `seasonPlayerTotals` (every player who appeared in XI or bench, captain-effective sum across those weeks, highest first) and `allTimeHighestScorer` (first of that list). The dashboard table filters to the **current** squad + bench; the card can still show a transferred-out season max.
+- **Homepage GOAT board:** `GET /api/v1/home` also returns `allTimeHighestScorers` (one season leader per competition). The UI picks the cross-league **GOAT** (max `totalPoints`, Messi/MLS often wins on more GWs) beside the weekly **MVP**.
+- **Homepage league tables:** same home payload includes `latestWeekStandings` (ranked by each competition’s latest scored GW points) plus `europeTotalStandings` / `americasTotalStandings` (season totals; Americas = MLS + Brasileirão).
 - **Official LaLiga deal highlights:** season max `priceIn` / `priceOut` from `gameweek_transfer` (Most expensive player purchase / Highest player sale).
 - **Longest serving player (Desafío):** most gameweeks with `role=starter`; ties broken by total starter points. Card sits between squad and transfers.
 - **Market totals (Desafío):** UI adds **Total sold** / **Total bought** (market + release-clause sides) for This gameweek and Season, plus footer totals on the manager counterpart tables.

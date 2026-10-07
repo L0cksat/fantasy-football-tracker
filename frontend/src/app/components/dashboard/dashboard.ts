@@ -2,7 +2,19 @@ import { DecimalPipe, NgClass, NgStyle } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { CompareView, Competition, CounterpartGroup, DealGroup, PickView, TeamView, TotalsView, TransferHighlight, LongestServingPlayer, TransferMarketScope } from '../../models/tracker';
+import {
+  CompareView,
+  Competition,
+  CounterpartGroup,
+  DealGroup,
+  LongestServingPlayer,
+  PickView,
+  SeasonPlayerTotal,
+  TeamView,
+  TotalsView,
+  TransferHighlight,
+  TransferMarketScope,
+} from '../../models/tracker';
 import { CompetitionService } from '../../services/competition';
 
 @Component({
@@ -74,6 +86,23 @@ export class DashboardComponent {
     return picks.reduce((best, pick) => (pick.points > best.points ? pick : best));
   });
 
+  /** Season leader by captain-effective points (any week they were in the squad). */
+  readonly allTimeHighestScorer = computed(() => this.teamView()?.allTimeHighestScorer ?? null);
+
+  /**
+   * Current XI + bench players with season totals, highest first.
+   * Uses the API season list filtered to this week's squad.
+   */
+  readonly squadSeasonTotals = computed(() => {
+    const picks = this.teamView()?.picks ?? [];
+    const season = this.teamView()?.seasonPlayerTotals ?? [];
+    if (!picks.length || !season.length) {
+      return [] as SeasonPlayerTotal[];
+    }
+    const currentIds = new Set(picks.map((pick) => pick.playerId));
+    return season.filter((row) => currentIds.has(row.playerId));
+  });
+
   /** Best and worst team gameweeks across the season (from totals). */
   readonly highestScoringGameweek = computed(() => {
     const weeks = this.totalsView()?.gameweeks ?? [];
@@ -126,6 +155,10 @@ export class DashboardComponent {
   }
 
   longestServingShirt(player: LongestServingPlayer): string {
+    return player.shirtNumber != null ? String(player.shirtNumber) : '—';
+  }
+
+  seasonTotalShirt(player: SeasonPlayerTotal): string {
     return player.shirtNumber != null ? String(player.shirtNumber) : '—';
   }
 
@@ -276,7 +309,9 @@ export class DashboardComponent {
         if (this.selectedId() !== id) {
           return;
         }
-        const scored = totals.gameweeks.map((week: { number: number }) => week.number);
+        const scored = totals.gameweeks
+          .filter((week) => this.isScoringComplete(week))
+          .map((week: { number: number }) => week.number);
         if (scored.length) {
           const latestScored = scored[scored.length - 1];
           this.gameweek.set(latestScored);

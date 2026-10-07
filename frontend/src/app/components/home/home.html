@@ -34,23 +34,47 @@
     </header>
 
     @if (home(); as page) {
-      @if (topPlayerOfTheWeek(); as mvp) {
-        <section class="mvp">
-          <div class="potw-head">
-            <h2>Top player of the week</h2>
-            <p>The highest scorer across every competition’s weekly standout.</p>
-          </div>
+      @if (topPlayerOfTheWeek() || topAllTimeScorer()) {
+        <section class="feature-pair" [class.feature-pair-single]="!(topPlayerOfTheWeek() && topAllTimeScorer())">
+          @if (topPlayerOfTheWeek(); as mvp) {
+            <div class="feature-slot">
+              <div class="potw-head">
+                <h2>Top player of the week</h2>
+                <p>The highest scorer across every competition’s weekly standout.</p>
+              </div>
 
-          <article
-            class="potw-card potw-card-mvp"
-            [ngStyle]="{
-              '--potw-primary': mvp.primaryColor || '#b6f34a',
-              '--potw-secondary': mvp.secondaryColor || '#eef6e8',
-            }"
-          >
-            <div class="mvp-badge">MVP</div>
-            <ng-container [ngTemplateOutlet]="playerCard" [ngTemplateOutletContext]="{ player: mvp }" />
-          </article>
+              <article
+                class="potw-card potw-card-mvp"
+                [ngStyle]="{
+                  '--potw-primary': mvp.primaryColor || '#b6f34a',
+                  '--potw-secondary': mvp.secondaryColor || '#eef6e8',
+                }"
+              >
+                <div class="mvp-badge">MVP</div>
+                <ng-container [ngTemplateOutlet]="playerCard" [ngTemplateOutletContext]="{ player: mvp }" />
+              </article>
+            </div>
+          }
+
+          @if (topAllTimeScorer(); as goat) {
+            <div class="feature-slot">
+              <div class="potw-head">
+                <h2>Highest all-time points scorer</h2>
+                <p>The season leader with the most captain-effective points across every league.</p>
+              </div>
+
+              <article
+                class="potw-card potw-card-goat"
+                [ngStyle]="{
+                  '--potw-primary': goat.primaryColor || '#b6f34a',
+                  '--potw-secondary': goat.secondaryColor || '#eef6e8',
+                }"
+              >
+                <div class="goat-badge">GOAT</div>
+                <ng-container [ngTemplateOutlet]="goatCard" [ngTemplateOutletContext]="{ player: goat }" />
+              </article>
+            </div>
+          }
         </section>
       }
 
@@ -82,6 +106,41 @@
                     <div class="mvp-badge mvp-badge-compact">MVP</div>
                   }
                   <ng-container [ngTemplateOutlet]="playerCard" [ngTemplateOutletContext]="{ player: player }" />
+                </article>
+              }
+            </div>
+          </div>
+        }
+      </section>
+
+      <section class="potw goat-board">
+        <div class="potw-head">
+          <h2>Highest all-time points scorers</h2>
+          <p>Season leaders from your squad in each competition, ranked by total captain-effective points.</p>
+        </div>
+
+        @if (!page.allTimeHighestScorers.length) {
+          <p class="muted">No season leaders yet — ingest scored gameweeks to unlock this board.</p>
+        } @else {
+          <div
+            class="potw-marquee"
+            (mouseenter)="pauseGoatMarquee()"
+            (mouseleave)="resumeGoatMarquee()"
+          >
+            <div class="potw-rail" #goatMarqueeTrack>
+              @for (player of marqueeGoats(); track $index) {
+                <article
+                  class="potw-card"
+                  [class.potw-card-goat]="isTopGoat(player)"
+                  [ngStyle]="{
+                    '--potw-primary': player.primaryColor || '#b6f34a',
+                    '--potw-secondary': player.secondaryColor || '#eef6e8',
+                  }"
+                >
+                  @if (isTopGoat(player)) {
+                    <div class="goat-badge goat-badge-compact">GOAT</div>
+                  }
+                  <ng-container [ngTemplateOutlet]="goatCard" [ngTemplateOutletContext]="{ player: player }" />
                 </article>
               }
             </div>
@@ -250,5 +309,46 @@
     <strong class="name">{{ player.name }}</strong>
     <span class="club">{{ player.club || '—' }}</span>
     <span class="gw-label">{{ player.gameweekName }} · {{ player.points | number: '1.0-1' }} pts</span>
+  </div>
+</ng-template>
+
+<ng-template #goatCard let-player="player">
+  <div class="potw-meta">
+    @if (player.logoUrl) {
+      <img class="comp-logo" [src]="player.logoUrl" [alt]="player.competitionName" (error)="hideImage($event)" />
+    }
+    <div>
+      <span class="comp-name">{{ player.competitionName }}</span>
+    </div>
+  </div>
+
+  <div class="portrait-stage">
+    @if (player.playerPortraitUrl) {
+      <img
+        class="portrait"
+        [src]="player.playerPortraitUrl"
+        [alt]="player.name"
+        (error)="hideImage($event)"
+      />
+    } @else {
+      <div class="portrait portrait-fallback" aria-hidden="true"></div>
+    }
+    @if (player.clubCrestUrl) {
+      <img
+        class="crest"
+        [src]="player.clubCrestUrl"
+        [alt]="player.club || 'Club crest'"
+        (error)="hideImage($event)"
+      />
+    }
+  </div>
+
+  <div class="player-copy">
+    <span class="shirt">{{ shirtLabel(player) }}</span>
+    <strong class="name">{{ player.name }}</strong>
+    <span class="club">{{ player.club || '—' }}</span>
+    <span class="gw-label"
+      >{{ player.gameweeksPlayed }} GW · {{ player.totalPoints | number: '1.0-1' }} pts</span
+    >
   </div>
 </ng-template>

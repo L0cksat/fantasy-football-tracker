@@ -8,6 +8,7 @@ public record HomePageResponse(
 		String defaultCompetitionSlug,
 		List<LeagueBrand> leagueBrands,
 		List<PlayerOfTheWeek> playersOfTheWeek,
+		List<AllTimeHighestScorer> allTimeHighestScorers,
 		List<LeagueStanding> latestWeekStandings,
 		List<LeagueStanding> europeTotalStandings,
 		List<LeagueStanding> americasTotalStandings) {
@@ -39,6 +40,26 @@ public record HomePageResponse(
 			String playerPortraitUrl,
 			String clubCrestUrl,
 			BigDecimal points) {
+	}
+
+	/** Season leader by captain-effective points for one competition’s tracked team. */
+	public record AllTimeHighestScorer(
+			Long competitionId,
+			String competitionName,
+			String competitionSlug,
+			String logoUrl,
+			String primaryColor,
+			String secondaryColor,
+			Long playerId,
+			String externalId,
+			String name,
+			Integer shirtNumber,
+			String position,
+			String club,
+			String playerPortraitUrl,
+			String clubCrestUrl,
+			int gameweeksPlayed,
+			BigDecimal totalPoints) {
 	}
 
 	public record LeagueStanding(

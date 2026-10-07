@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import gsap from 'gsap';
-import { HomePage, PlayerOfTheWeek } from '../../models/tracker';
+import { AllTimeHighestScorer, HomePage, PlayerOfTheWeek } from '../../models/tracker';
 import { HomeService } from '../../services/home';
 
 @Component({
@@ -24,8 +24,11 @@ export class HomeComponent {
   private readonly homeService = inject(HomeService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly marqueeTrack = viewChild<ElementRef<HTMLElement>>('marqueeTrack');
+  private readonly goatMarqueeTrack = viewChild<ElementRef<HTMLElement>>('goatMarqueeTrack');
   private marqueeTween: gsap.core.Tween | null = null;
   private marqueeDistance = 0;
+  private goatMarqueeTween: gsap.core.Tween | null = null;
+  private goatMarqueeDistance = 0;
 
   readonly home = signal<HomePage | null>(null);
   readonly error = signal<string | null>(null);
@@ -70,6 +73,17 @@ export class HomeComponent {
     return players.reduce((best, player) => (player.points > best.points ? player : best));
   });
 
+  /** Highest season total across every competition’s all-time leader. */
+  readonly topAllTimeScorer = computed(() => {
+    const players = this.home()?.allTimeHighestScorers ?? [];
+    if (!players.length) {
+      return null;
+    }
+    return players.reduce((best, player) =>
+      player.totalPoints > best.totalPoints ? player : best,
+    );
+  });
+
   /** Duplicated list for a seamless horizontal marquee loop. */
   readonly marqueePlayers = computed(() => {
     const players = this.home()?.playersOfTheWeek ?? [];
@@ -79,17 +93,37 @@ export class HomeComponent {
     return [...players, ...players];
   });
 
+  /** Duplicated all-time leaders for the season marquee. */
+  readonly marqueeGoats = computed(() => {
+    const players = this.home()?.allTimeHighestScorers ?? [];
+    if (!players.length) {
+      return [];
+    }
+    return [...players, ...players];
+  });
+
   constructor() {
-    this.destroyRef.onDestroy(() => this.killMarquee());
+    this.destroyRef.onDestroy(() => {
+      this.killMarquee();
+      this.killGoatMarquee();
+    });
 
     afterRenderEffect(() => {
       const track = this.marqueeTrack()?.nativeElement;
       const count = this.marqueePlayers().length;
       if (!track || !count) {
         this.killMarquee();
-        return;
+      } else {
+        this.setupMarquee(track);
       }
-      this.setupMarquee(track);
+
+      const goatTrack = this.goatMarqueeTrack()?.nativeElement;
+      const goatCount = this.marqueeGoats().length;
+      if (!goatTrack || !goatCount) {
+        this.killGoatMarquee();
+      } else {
+        this.setupGoatMarquee(goatTrack);
+      }
     });
 
     this.homeService.getHome().subscribe({
@@ -112,16 +146,29 @@ export class HomeComponent {
     this.marqueeTween?.resume();
   }
 
+  pauseGoatMarquee(): void {
+    this.goatMarqueeTween?.pause();
+  }
+
+  resumeGoatMarquee(): void {
+    this.goatMarqueeTween?.resume();
+  }
+
   hideImage(event: Event): void {
     (event.target as HTMLImageElement).style.visibility = 'hidden';
   }
 
-  shirtLabel(player: PlayerOfTheWeek): string {
+  shirtLabel(player: Pick<PlayerOfTheWeek, 'shirtNumber'> | Pick<AllTimeHighestScorer, 'shirtNumber'>): string {
     return player.shirtNumber != null ? String(player.shirtNumber) : '—';
   }
 
   isTopPlayer(player: PlayerOfTheWeek): boolean {
     const top = this.topPlayerOfTheWeek();
+    return top != null && top.competitionId === player.competitionId && top.playerId === player.playerId;
+  }
+
+  isTopGoat(player: AllTimeHighestScorer): boolean {
+    const top = this.topAllTimeScorer();
     return top != null && top.competitionId === player.competitionId && top.playerId === player.playerId;
   }
 
@@ -131,7 +178,6 @@ export class HomeComponent {
       return;
     }
 
-    // Skip rebuild when the track width has not changed (e.g. image layout settle).
     if (this.marqueeTween && this.marqueeDistance === distance) {
       return;
     }
@@ -139,9 +185,32 @@ export class HomeComponent {
     const wasPaused = this.marqueeTween?.paused() ?? false;
     this.killMarquee();
     this.marqueeDistance = distance;
+    this.marqueeTween = this.createMarqueeTween(track, distance, wasPaused);
+  }
 
+  private setupGoatMarquee(track: HTMLElement): void {
+    const distance = track.scrollWidth / 2;
+    if (distance <= 0) {
+      return;
+    }
+
+    if (this.goatMarqueeTween && this.goatMarqueeDistance === distance) {
+      return;
+    }
+
+    const wasPaused = this.goatMarqueeTween?.paused() ?? false;
+    this.killGoatMarquee();
+    this.goatMarqueeDistance = distance;
+    this.goatMarqueeTween = this.createMarqueeTween(track, distance, wasPaused);
+  }
+
+  private createMarqueeTween(
+    track: HTMLElement,
+    distance: number,
+    wasPaused: boolean,
+  ): gsap.core.Tween {
     const pixelsPerSecond = 28;
-    this.marqueeTween = gsap.fromTo(
+    const tween = gsap.fromTo(
       track,
       { x: 0 },
       {
@@ -151,10 +220,10 @@ export class HomeComponent {
         repeat: -1,
       },
     );
-
     if (wasPaused) {
-      this.marqueeTween.pause();
+      tween.pause();
     }
+    return tween;
   }
 
   private killMarquee(): void {
@@ -162,6 +231,16 @@ export class HomeComponent {
     this.marqueeTween = null;
     this.marqueeDistance = 0;
     const track = this.marqueeTrack()?.nativeElement;
+    if (track) {
+      gsap.set(track, { clearProps: 'transform' });
+    }
+  }
+
+  private killGoatMarquee(): void {
+    this.goatMarqueeTween?.kill();
+    this.goatMarqueeTween = null;
+    this.goatMarqueeDistance = 0;
+    const track = this.goatMarqueeTrack()?.nativeElement;
     if (track) {
       gsap.set(track, { clearProps: 'transform' });
     }

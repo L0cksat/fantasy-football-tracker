@@ -94,6 +94,11 @@
   left: 58%;
   animation-delay: -7s;
 }
+.home-logo-11 {
+  bottom: 18%;
+  left: 72%;
+  animation-delay: -10s;
+}
 
 .home-content {
   position: relative;
@@ -183,21 +188,39 @@
   animation: rise-in 1s ease-out both;
 }
 
-.mvp {
+.feature-pair {
   display: grid;
-  gap: 1rem;
-  justify-items: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: start;
   text-align: center;
   animation: rise-in 0.9s ease-out both;
 }
 
-.mvp .potw-head {
+.feature-pair-single {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.feature-slot {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
   width: 100%;
 }
 
-.mvp .potw-card-mvp {
+.feature-slot .potw-head {
+  width: 100%;
+}
+
+.feature-slot .potw-card-mvp,
+.feature-slot .potw-card-goat {
   width: min(22rem, 100%);
   justify-self: center;
+}
+
+.goat-board {
+  margin-top: 0.35rem;
 }
 
 .potw-head h2 {
@@ -250,7 +273,8 @@
     rgba(12, 20, 16, 0.94);
 }
 
-.mvp-badge {
+.mvp-badge,
+.goat-badge {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
@@ -266,9 +290,27 @@
   font-weight: 700;
 }
 
-.mvp-badge-compact {
+.goat-badge {
+  background: color-mix(in srgb, var(--potw-secondary) 78%, #f5d76e);
+  color: #1a1408;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #f5d76e 45%, transparent);
+}
+
+.mvp-badge-compact,
+.goat-badge-compact {
   font-size: 0.68rem;
   padding: 0.2rem 0.5rem;
+}
+
+.potw-card-goat {
+  border: 2px solid color-mix(in srgb, #f5d76e 70%, var(--potw-secondary));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, #f5d76e 40%, transparent),
+    0 0 28px color-mix(in srgb, #f5d76e 18%, transparent),
+    0 18px 40px rgba(0, 0, 0, 0.32);
+  background:
+    linear-gradient(165deg, color-mix(in srgb, var(--potw-primary) 42%, rgba(8, 16, 12, 0.9)), rgba(8, 16, 12, 0.9)),
+    rgba(12, 20, 16, 0.94);
 }
 
 .potw-meta {
@@ -529,6 +571,10 @@
   .home-logo {
     width: 5.5rem;
     opacity: 0.1;
+  }
+
+  .feature-pair {
+    grid-template-columns: 1fr;
   }
 
   .potw-card {

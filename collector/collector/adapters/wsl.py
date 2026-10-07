@@ -418,13 +418,37 @@ def _safe_round_overlay(round_number: int, season_id: int | None) -> dict[str, A
 
 
 def _safe_wsl_players() -> list[dict[str, Any]]:
+    """SofaScore WSL/WSL2 directories for portraits; fall back to last good cache when live GET 403s."""
     players: list[dict[str, Any]] = []
     for tournament_id in (WSL_TOURNAMENT_ID, WSL2_TOURNAMENT_ID):
         try:
             players.extend(fetch_tournament_players(tournament_id))
         except Exception:
             continue
-    return players
+    cache_path = Path(__file__).resolve().parents[2] / "cache" / "wsl-fantasy" / "sofascore-players.json"
+    if players:
+        try:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps(players, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
+        return players
+    cached = _load_cached_sofascore_players(cache_path)
+    if cached:
+        return cached
+    return []
+
+
+def _load_cached_sofascore_players(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [row for row in payload if isinstance(row, dict) and row.get("playerId") is not None]
 
 
 def _gameweek_status(

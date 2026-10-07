@@ -23,9 +23,9 @@ collector (pull / import / import-excel)
     POST /api/v1/ingest/transfers
         → IngestService upserts entities
 frontend  GET /api/v1/home
-        → HomePageService (brands + Players of the Week)
+        → HomePageService (brands + POTW + all-time leaders + standings)
 frontend  GET /api/v1/competitions…
-        → CompetitionQueryService + branding/crests/portraits
+        → CompetitionQueryService + branding/crests/portraits + season totals
 ```
 
 Captain **display** is always ×2 (×3 if triple captain). Ingest stores **raw** points. Official WSL `totalPoints` already includes ×2, so the collector divides the captain’s value by 2 before POST.
@@ -66,7 +66,7 @@ Optional header `X-Ingest-Token` when `fantasy.ingest.token` is set.
 
 | Method | Path | Why |
 |---|---|---|
-| **`home`** | `GET /api/v1/home` | League brand wash + Players of the Week for the landing page. |
+| **`home`** | `GET /api/v1/home` | League brand wash, Players of the Week, all-time season leaders, and league standings for the landing page. |
 
 ### HTTP — read (`CompetitionController`)
 
@@ -82,22 +82,27 @@ Frontend-only surface for the leagues dashboard.
 
 ### `HomePageService`
 
-Why it exists: one read model for the homepage so Angular does not assemble brands/POTW/standings from many competition calls.
+Why it exists: one read model for the homepage so Angular does not assemble brands/POTW/all-time leaders/standings from many competition calls.
 
-- **`homePage`** — all competitions; default prefers SofaScore `premier-league`; unique `LeagueBrand`s keyed by `CompetitionBranding.brandKey`; one `PlayerOfTheWeek` per competition that has a scored squad; three ranked standings lists (latest week, Europe season, Americas season).
+- **`homePage`** — all competitions; default prefers SofaScore `premier-league`; unique `LeagueBrand`s keyed by `CompetitionBranding.brandKey`; one `PlayerOfTheWeek` and one `AllTimeHighestScorer` per competition that has data; three ranked standings lists (latest week, Europe season, Americas season).
 - **`playerOfTheWeek(Competition)`** — resolves latest scored gameweek; picks the squad row with max `CaptainScoring.effective(raw, captain, tripleCaptain)`; club / shirt / crest prefer **pick-scoped** fields, then fall back to `Player`.
+- **`allTimeHighestScorer(Competition)`** — for the competition’s tracked team, sum captain-effective points across every week each player was in XI or bench; return the max (name tie-break); presentation club/shirt/crest from the player’s **latest** pick week.
 - **`latestWeekStanding` / `seasonTotalStanding` / `rankStandings`** — build `LeagueStanding` rows (logo + brand colours + points); season totals only sum weeks that pass `isScoringComplete`; Americas vs Europe via `CompetitionBranding.isAmericas` (MLS + Brasileirão).
 - **`resolveLatestScoredGameweek`** — prefer latest week that is scoring-complete with picks; else latest team score with points &gt; 0; else last score row. SofaScore often leaves prior rounds as `live` until the season finalises, so **points &gt; 0 counts as complete**.
 - **`isScoringComplete`** — `status=finished` **or** team points &gt; 0 (keeps open 0-pt shells out of POTW / standings / low-week math).
-- **`displayBrandName`** — short labels for the brand wash (`"10783"` → `"Nations League"`, etc.).
+- **`displayBrandName`** — short labels for the brand wash (`"10783"` → `"Nations League"`, `"17015"` → `"Conference League"`, etc.).
 
-#### Players of the Week vs MVP
+#### Players of the Week vs MVP / GOAT
 
 | Concept | Where | Rule |
 |---|---|---|
 | **POTW** | Backend `HomePageService` | Per competition: highest captain-effective points in that competition’s resolved latest GW (**your squad only**). |
 | **MVP** | Frontend `HomeComponent.topPlayerOfTheWeek` | Highest `points` across the returned `playersOfTheWeek` list (cross-competition). |
+| **All-time per league** | Backend `HomePageService.allTimeHighestScorer` | Per competition: max captain-effective **season** sum across every week the player was picked. |
+| **GOAT** | Frontend `HomeComponent.topAllTimeScorer` | Highest `totalPoints` across `allTimeHighestScorers` (cross-competition). |
 | **GW card** | Frontend `DashboardComponent.playerOfTheWeek` | Highest `pick.points` in the **selected** competition gameweek. |
+| **Competition all-time card** | Frontend `DashboardComponent.allTimeHighestScorer` | From `teamView.allTimeHighestScorer` (season max for that competition’s team). |
+| **Season player table** | Frontend `DashboardComponent.squadSeasonTotals` | `seasonPlayerTotals` filtered to **current** GW picks (XI + bench), already sorted high→low. |
 | **Season high / low GW** | Frontend from `totals` | Max across all weeks; **min only among scoring-complete weeks** (finished or points &gt; 0). |
 | **Homepage standings** | `latestWeekStandings` / `europeTotalStandings` / `americasTotalStandings` | Ranked by latest scored GW points, or season sum of complete weeks. |
 | **LaLiga buy / sale cards** | `transferMarket.mostExpensivePurchase` / `highestSale` | Season max `priceIn` / `priceOut` across official transfer rows. |
@@ -125,7 +130,8 @@ Why it exists: GET payloads include derived media (crest, portrait, colours) and
 - **`teamView` / `gameweekView`** — same builder; `teamView` picks latest week if unspecified.
 - **`compare`** — players in either week; points use captain multiplier per week’s triple-captain flag; club via `clubOf`.
 - **`totals`** — ordered week scores + season total; each `GameweekTotal` includes **`status`** so the UI can filter unfinished open shells for lowest-week.
-- **`buildTeamView`** — starters/bench, portraits, crests (pick-scoped club), transfers, transfer-market summary (incl. LaLiga season extremes), optional **`longestServingPlayer`** for Official LaLiga.
+- **`buildTeamView`** — starters/bench, portraits, crests (pick-scoped club), transfers, transfer-market summary (incl. LaLiga season extremes), optional **`longestServingPlayer`** for Official LaLiga, plus **`seasonPlayerTotals`** and **`allTimeHighestScorer`**.
+- **`buildSeasonPlayerTotals`** — group all `SquadPick`s for the team by player; sum `CaptainScoring.effective` using each week’s triple-captain flag; sort by `totalPoints` desc then name; club/crest/shirt from the latest pick week. Empty picks → empty list; `allTimeHighestScorer` is `seasonTotals.get(0)` or null.
 - **`findLongestServingPlayer`** — count `role=starter` GWs per player; ties broken by sum of starter points; crest/portrait/shirt from pick-scoped fields.
 - **`buildTransfers`** — stored `gameweek_transfer` rows if present; otherwise **squad-diff** against the previous week (WSL and gaps in official feeds).
 - **`toTransfer` (overloads)** — maps a player + price + counterpart into the dashboard transfer card; the `SquadPick` overload uses pick-scoped club.
@@ -169,6 +175,7 @@ Maps `source` + `externalId` onto SofaScore unique-tournament ids. Official FPL 
 | `35` | Bundesliga | `#e2080e` / `#8e0902` |
 | `7` | Champions League | `#062b5c` / `#086aab` |
 | `679` | Europa League | `#3d1a08` / `#f37d25` |
+| `17015` | Conference League | `#061a0f` / `#00be14` |
 | `10783` | Nations League | `#3a4179` / `#e5a422` |
 | `242` | MLS | `#e2231a` / `#062f69` |
 | `325` | Brasileirão | `#C7FF00` / `#969696` |
@@ -218,9 +225,11 @@ Spring Data query methods — no custom SQL.
 
 - **`SnapshotRequest`** (+ nested competition/gameweek/team/player/pick) — ingest body.
 - **`TransfersRequest`** (+ round + pair) — ingest transfers; in/out may be null for LaLiga.
-- **`HomePageResponse`** — `defaultCompetitionId` / `defaultCompetitionSlug`, `LeagueBrand` list, `PlayerOfTheWeek` list, `latestWeekStandings` / `europeTotalStandings` / `americasTotalStandings` (`LeagueStanding`).
+- **`HomePageResponse`** — `defaultCompetitionId` / `defaultCompetitionSlug`, `LeagueBrand` list, `PlayerOfTheWeek` list, **`AllTimeHighestScorer` list**, `latestWeekStandings` / `europeTotalStandings` / `americasTotalStandings` (`LeagueStanding`).
+- **`HomePageResponse.AllTimeHighestScorer`** — competition branding + player media + `gameweeksPlayed` + `totalPoints` (captain-effective season sum).
 - **`CompetitionResponse`** — list item including branding URLs/colours.
-- **`TeamViewResponse`** — dashboard squad: picks (`injured` / `suspended`), transfers, transfer-market summary (`mostExpensivePurchase` / `highestSale` highlights), optional `longestServingPlayer`, captain display fields (`points`, `basePoints`, `captainMultiplier`).
+- **`TeamViewResponse`** — dashboard squad: picks (`injured` / `suspended`), transfers, transfer-market summary (`mostExpensivePurchase` / `highestSale` highlights), optional `longestServingPlayer`, **`seasonPlayerTotals`**, **`allTimeHighestScorer`**, captain display fields (`points`, `basePoints`, `captainMultiplier`).
+- **`TeamViewResponse.SeasonPlayerTotal`** — player id/name/media/club/crest/shirt + `gameweeksPlayed` + `totalPoints`.
 - **`CompareResponse` / `PlayerDelta`**
 - **`TotalsResponse` / `GameweekTotal`** — `GameweekTotal` carries `number`, `name`, **`status`**, `points`.
 
@@ -233,7 +242,7 @@ Spring Data query methods — no custom SQL.
 
 ## Frontend (Angular 21)
 
-Standalone components, signals, `HttpClient`. Routes: homepage + leagues dashboard. GSAP is used only for the homepage POTW marquee.
+Standalone components, signals, `HttpClient`. Routes: homepage + leagues dashboard. GSAP drives the homepage POTW marquee **and** the all-time scorers marquee (same ~28 px/s loop, pause on hover).
 
 ### Bootstrap
 
@@ -259,11 +268,11 @@ Thin GET client at `http://localhost:8080/api/v1/competitions`. Created so the U
 
 ### `tracker.ts` models
 
-TypeScript mirrors of GET JSON: `HomePage` (incl. `LeagueStanding` lists), `LeagueBrand`, `PlayerOfTheWeek`, `Competition`, `TeamView` (incl. `LongestServingPlayer`), `PickView` (`injured` / `suspended`), `TransferView`, `TransferHighlight`, `TransferMarket*` (incl. season extremes), `CompareView`, `PlayerDelta`, `TotalsView` (`GameweekTotal.status`).
+TypeScript mirrors of GET JSON: `HomePage` (incl. `LeagueStanding` lists + `allTimeHighestScorers`), `LeagueBrand`, `PlayerOfTheWeek`, `AllTimeHighestScorer`, `Competition`, `TeamView` (incl. `LongestServingPlayer`, `seasonPlayerTotals`, `allTimeHighestScorer`), `SeasonPlayerTotal`, `PickView` (`injured` / `suspended`), `TransferView`, `TransferHighlight`, `TransferMarket*` (incl. season extremes), `CompareView`, `PlayerDelta`, `TotalsView` (`GameweekTotal.status`).
 
 ### `HomeComponent` — landing page
 
-Why: brand-first homepage with league wash, MVP card, a sliding Players of the Week rail, and league standings tables.
+Why: brand-first homepage with league wash, MVP + GOAT feature pair, sliding Players of the Week rail, all-time scorers rail, and league standings tables.
 
 **Signals:** `home`, `error`, `loading`.
 
@@ -272,41 +281,46 @@ Why: brand-first homepage with league wash, MVP card, a sliding Players of the W
 - **`colorMix`** — builds `--home-mix` gradient from every `leagueBrands` primary/secondary pair.
 - **`leaguesHref` / `leaguesQuery`** — CTA to `/leagues` with optional `?competition=` from `defaultCompetitionId`.
 - **`topPlayerOfTheWeek`** — cross-competition MVP (max `points` in `playersOfTheWeek`).
+- **`topAllTimeScorer`** — cross-competition GOAT (max `totalPoints` in `allTimeHighestScorers`).
 - **`marqueePlayers`** — `[...players, ...players]` so GSAP can loop seamlessly on half the track width.
+- **`marqueeGoats`** — same duplication for `allTimeHighestScorers`.
 
 **Lifecycle / marquee**
 
-- **constructor** — `HomeService.getHome()`; `afterRenderEffect` calls `setupMarquee` when `#marqueeTrack` exists; `DestroyRef` → `killMarquee`.
-- **`setupMarquee(track)`** — GSAP `fromTo` `x: 0 → -scrollWidth/2`, ease `none`, `repeat: -1`, ~28 px/s; skips rebuild when distance unchanged; preserves pause state.
-- **`killMarquee`** — kills tween; clears transform.
-- **`pauseMarquee` / `resumeMarquee`** — bound to marquee `mouseenter` / `mouseleave`.
+- **constructor** — `HomeService.getHome()`; `afterRenderEffect` sets up `#marqueeTrack` and `#goatMarqueeTrack`; `DestroyRef` → `killMarquee` + `killGoatMarquee`.
+- **`setupMarquee` / `setupGoatMarquee`** — shared `createMarqueeTween`: GSAP `fromTo` `x: 0 → -scrollWidth/2`, ease `none`, `repeat: -1`, ~28 px/s; skips rebuild when distance unchanged; preserves pause state.
+- **`killMarquee` / `killGoatMarquee`** — kill tween; clear transform.
+- **`pauseMarquee` / `resumeMarquee` / `pauseGoatMarquee` / `resumeGoatMarquee`** — bound to each marquee’s `mouseenter` / `mouseleave`.
 
-**Helpers:** `hideImage`, `shirtLabel`, `isTopPlayer` (MVP highlight on duplicated marquee cards).
+**Helpers:** `hideImage`, `shirtLabel`, `isTopPlayer` (MVP badge on duplicated POTW cards), `isTopGoat` (GOAT badge on duplicated all-time cards).
 
-Standings UI: three tables under POTW — **Latest week**, **Europe (season)**, **Americas (season)** — each row uses competition logo + brand CSS vars from the API.
+Templates: `#playerCard` (weekly `gameweekName · points`), `#goatCard` (`N GW · totalPoints`). Standings UI under both marquees — **Latest week**, **Europe (season)**, **Americas (season)**.
 
-#### Homepage POTW / MVP styling (`home.css`)
+#### Homepage POTW / MVP / GOAT styling (`home.css`)
 
 | Class / token | Purpose |
 |---|---|
 | `.home`, `.home-wash` | Full-page atmosphere; wash uses `--home-mix` + soft radials. |
-| `.home-logos`, `.home-logo`, `.home-logo-0`…`-10` | Floating competition logos; **one unique slot each** (no `i % 5` overlap). |
+| `.home-logos`, `.home-logo`, `.home-logo-0`…`-11` | Floating competition logos; **one unique slot each** (no `i % 5` overlap). |
 | `.home-content`, `.home-hero`, `.eyebrow`, `.lede`, `.cta`, `.banner` | Hero copy + CTA. |
-| `.mvp`, `.mvp-badge`, `.mvp-badge-compact` | Featured Top player of the week + MVP chip. |
-| `.potw`, `.potw-head` | Section title for the rail. |
+| `.feature-pair`, `.feature-pair-single`, `.feature-slot` | Side-by-side MVP + GOAT (stacks to one column ≤720px). |
+| `.mvp-badge`, `.mvp-badge-compact` | Lime MVP chip. |
+| `.goat-badge`, `.goat-badge-compact` | Warm secondary / gold GOAT chip. |
+| `.potw-card-mvp` / `.potw-card-goat` | Featured border + glow variants. |
+| `.goat-board` | Section wrapper for the all-time marquee under POTW. |
+| `.potw`, `.potw-head` | Section title for each rail. |
 | `.potw-marquee` | Overflow hidden + edge fade mask. |
 | `.potw-rail` | Flex `width: max-content` track GSAP translates. |
 | `.potw-card` | Card chrome; `--potw-primary` / `--potw-secondary` from API. |
-| `.potw-card-mvp` | Lime border + stronger glow for the MVP duplicate. |
 | `.potw-meta`, `.comp-logo`, `.comp-name` | Competition row on the card. |
 | `.portrait-stage`, `.portrait`, `.portrait-fallback`, `.crest` | Portrait plane + club crest overlay. |
-| `.player-copy`, `.shirt`, `.name`, `.club`, `.gw-label` | Shirt, name, club, `Round N · X pts`. |
+| `.player-copy`, `.shirt`, `.name`, `.club`, `.gw-label` | Shirt, name, club, points line. |
 
-Template: `home.html` — wash, logo field, hero, MVP `ng-template` card, marquee of cards sharing `#playerCard`.
+Template: `home.html` — wash, logo field, hero, feature-pair cards, two marquees, standings.
 
 ### `DashboardComponent` — leagues page
 
-Why: one page for every league — branding, XI, bench/squad, GW standout card, status chips, season high/low weeks, transfers (LaLiga deal cards + market totals), longest-serving card, compare, totals.
+Why: one page for every league — branding, XI, bench/squad, GW + all-time standout cards, season player totals table, status chips, season high/low weeks, transfers (LaLiga deal cards + market totals), longest-serving card, compare, totals.
 
 **Signals:** `competitions`, `selectedId`, `gameweek`, `fromGw`, `toGw`, `teamView`, `compareView`, `totalsView`, `error`, `loading`.
 
@@ -319,6 +333,8 @@ Why: one page for every league — branding, XI, bench/squad, GW standout card, 
 - **`reserveHeading`** — “Squad” vs “Bench”.
 - **`showTransferCounterpart`** — LaLiga or any move with a counterpart.
 - **`playerOfTheWeek`** — max `pick.points` in the current `teamView` (GW card).
+- **`allTimeHighestScorer`** — from `teamView.allTimeHighestScorer`.
+- **`squadSeasonTotals`** — `seasonPlayerTotals` filtered to current pick `playerId`s (keeps API sort order).
 - **`highestScoringGameweek` / `lowestScoringGameweek`** — season extremes from `totalsView.gameweeks`; lowest filters with `isScoringComplete` (finished or points &gt; 0).
 - **`mostExpensivePurchase` / `highestPlayerSale`** — Official LaLiga only; from `transferMarket` season highlights.
 - **`longestServingPlayer`** — Official LaLiga only; from `teamView.longestServingPlayer`.
@@ -330,21 +346,22 @@ Why: one page for every league — branding, XI, bench/squad, GW standout card, 
 - **`onCompetitionChange` / `onGameweekChange` / `onCompareChange`** — template bindings.
 - **`transferLabel` / `priceFormat` / `counterpartLabel` / `hasMarketDeals`** — LaLiga market wording and prices.
 - **`totalSold` / `totalBought` / `counterpartTotals`** — combine market + release-clause deal groups; footer totals on manager counterpart tables.
-- **`shirtLabel` / `transferHighlightShirt` / `longestServingShirt` / `transferHighlightMeta`** — shirt / GW+counterpart for POTW-style cards.
+- **`shirtLabel` / `seasonTotalShirt` / `transferHighlightShirt` / `longestServingShirt` / `transferHighlightMeta`** — shirt / GW+counterpart for POTW-style cards.
 - **`isInjured` / `isSuspended`** — status chips on squad rows.
 - **`hideImage`** — hide broken crest/portrait.
 - **`signed`** — `+n` / `n` for compare deltas.
 - **`refreshAll` / `loadTeam` / `loadCompare` / `loadTotals`** — HTTP; errors set `error`.
 
-#### Competition-page GW POTW card styling (`dashboard.css`)
+#### Competition-page GW POTW / season totals styling (`dashboard.css`)
 
 Same visual language as homepage cards, scoped under the competition view:
 
 | Class | Purpose |
 |---|---|
-| `.gw-potw`, `.gw-potw-head` | Centered “Player of the week” block above the squad. |
+| `.gw-potw`, `.gw-potw-pair`, `.gw-potw-slot`, `.gw-potw-head` | POTW + All time Highest scorer pair above the squad (stacks ≤720px). |
 | `.potw-card` (+ nested portrait / crest / copy) | Card using `--potw-primary` / `--potw-secondary` from the selected competition. |
-| `.potw-meta`, `.potw-comp-logo`, `.potw-comp-name` | Competition header on the GW card. |
+| `.potw-meta`, `.potw-comp-logo`, `.potw-comp-name` | Competition header on the GW / all-time cards. |
+| `.season-totals` | Panel for the Total points scored table (above score extremes). |
 | `.chip-injured` / `.chip-suspended` | Amber / red outline chips next to player names. |
 | `.score-extremes` | Two-column Season-total-style cards for best/worst GW. |
 | `.transfer-highlights`, `.transfer-highlights-grid` | Side-by-side LaLiga purchase/sale POTW cards in Transfers. |
@@ -382,7 +399,7 @@ Package `collector`, CLI `python -m collector`. Loads repo-root then `collector/
 ### Pull orchestration (`pull.py`)
 
 - **`PullTarget`** — slug + competition/squad/transfers/gameweek URLs.
-- **`pull_targets_from_env`** — Premier League unprefixed `SOFASCORE_*` or `SOFASCORE_PREMIER_LEAGUE_*`; other leagues `SOFASCORE_LALIGA_*`, `SERIE_A`, `LIGUE_1`, `BUNDESLIGA`, `CHAMPIONS_LEAGUE`, `EUROPA_LEAGUE`, **`NATIONS_LEAGUE`**, `MLS`, `BRASILEIRAO`. A concrete `/round/{id}/squad` URL alone is enough for a first Nations League ingest.
+- **`pull_targets_from_env`** — Premier League unprefixed `SOFASCORE_*` or `SOFASCORE_PREMIER_LEAGUE_*`; other leagues `SOFASCORE_LALIGA_*`, `SERIE_A`, `LIGUE_1`, `BUNDESLIGA`, `CHAMPIONS_LEAGUE`, `EUROPA_LEAGUE`, **`CONFERENCE_LEAGUE`**, **`NATIONS_LEAGUE`**, `MLS`, `BRASILEIRAO`. A concrete `/round/{id}/squad` URL alone is enough for a first Nations League ingest.
 - **`complete_target`** — from a Fantasy `…/competition/{id}` URL, derive `/transfers` and `/round/{roundId}/squad`.
 - **`_target_from_prefix`** — env → `PullTarget`.
 - **`adapter_for_target`** — `SofaScoreAdapter` for that target.
@@ -432,7 +449,7 @@ Why: official FPL/WSL ids are not SofaScore ids; portraits (and FPL display name
 - **`search_sofascore_player`** — `search/all` fallback.
 - **`_tokens_match`**
 
-Tournament constants: PL **17**, WSL **1044**, WSL2 **10553**. Nations League branding tournament id **10783**.
+Tournament constants: PL **17**, WSL **1044**, WSL2 **10553**. Conference League branding tournament id **17015**. Nations League branding tournament id **10783**.
 
 ### Official FPL (`adapters/fpl.py`)
 
@@ -505,4 +522,4 @@ Never log tokens. HTTP 401 on SofaScore → refresh cookie. HTTP 401 on WSL → 
 ## Docs / screenshots
 
 - **`docs/TECHNICAL.md`** — this file.
-- **`docs/screenshots/`** — README media (`home.png`, `leagues.png`, `potw-marquee.gif`, `squad-status-badges.png`, `score-extremes.png`, `laliga-transfer-highlights.png`).
+- **`docs/screenshots/`** — README media (`home.png` / `home-mvp-goat.png`, `home-goat-marquee.png`, `leagues-all-time-scorer.png`, `season-totals-table.png`, `potw-marquee.gif`, `squad-status-badges.png`, `score-extremes.png`, `laliga-transfer-highlights.png`, legacy `leagues.png`).

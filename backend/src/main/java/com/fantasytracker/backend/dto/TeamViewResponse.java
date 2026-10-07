@@ -14,7 +14,9 @@ public record TeamViewResponse(
 		List<PickView> picks,
 		List<TransferView> transfers,
 		TransferMarketSummary transferMarket,
-		LongestServingPlayer longestServingPlayer) {
+		LongestServingPlayer longestServingPlayer,
+		List<SeasonPlayerTotal> seasonPlayerTotals,
+		SeasonPlayerTotal allTimeHighestScorer) {
 
 	public record CompetitionSummary(
 			Long id,
@@ -118,6 +120,20 @@ public record TeamViewResponse(
 			String clubCrestUrl,
 			Integer shirtNumber,
 			int gameweeksStarted,
+			BigDecimal totalPoints) {
+	}
+
+	/** Season sum of captain-effective points across every week the player was in the squad (XI or bench). */
+	public record SeasonPlayerTotal(
+			Long playerId,
+			String externalId,
+			String name,
+			String playerPortraitUrl,
+			String position,
+			String club,
+			String clubCrestUrl,
+			Integer shirtNumber,
+			int gameweeksPlayed,
 			BigDecimal totalPoints) {
 	}
 }

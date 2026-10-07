@@ -52,3 +52,18 @@ def test_resolve_matches_web_name_and_club():
     assert virgil is not None and virgil["playerId"] == 151545
     assert porro is not None and porro["playerId"] == 913654
     assert gabriel is not None and gabriel["playerId"] == 869792
+
+
+def test_resolve_matches_unique_surname_token():
+    directory = [
+        {"playerId": 824959, "playerName": "Mapi León", "teamName": "London City Lionesses"},
+        {"playerId": 98110, "playerName": "Alexia Putellas", "teamName": "London City Lionesses"},
+    ]
+    hit = resolve_sofascore_player(
+        web_name="M. León",
+        first_name="Maria Pilar",
+        second_name="León Cebrián",
+        club="London City Lionesses",
+        directory=directory,
+    )
+    assert hit is not None and hit["playerId"] == 824959

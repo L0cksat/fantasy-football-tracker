@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import unicodedata
 from typing import Any
@@ -44,7 +45,7 @@ def club_key(name: Any) -> str:
 
 def fetch_tournament_players(tournament_id: int) -> list[dict[str, Any]]:
     """SofaScore unique-tournament/{id} current-season player list (same path family as LaLiga 8)."""
-    headers = _browser_headers("")
+    headers = _browser_headers(_session_cookie())
     seasons_payload = _http_get(
         f"https://www.sofascore.com/api/v1/unique-tournament/{tournament_id}/seasons",
         headers=headers,
@@ -80,7 +81,8 @@ def resolve_sofascore_player(
     club_fold = club_key(club)
     candidates = [item for item in directory if club_key(item.get("teamName")) == club_fold]
     if not candidates:
-        return None
+        # Club transfers / WSL club renames: fall back to name-only across the full directory.
+        candidates = list(directory)
     full = fold_name(f"{first_name} {second_name}")
     web = fold_name(web_name)
     second = fold_name(second_name)
@@ -96,6 +98,12 @@ def resolve_sofascore_player(
     last_hits = [item for item in candidates if second and second in fold_name(item.get("playerName")).split()]
     if len(last_hits) == 1:
         return last_hits[0]
+    # "Maria Pilar León Cebrián" vs catalog "Mapi León": unique surname token at the club.
+    surname_tokens = [part for part in second.split() if len(part) > 2]
+    for token in surname_tokens:
+        token_hits = [item for item in candidates if token in fold_name(item.get("playerName")).split()]
+        if len(token_hits) == 1:
+            return token_hits[0]
     return None
 
 
@@ -106,7 +114,7 @@ def search_sofascore_player(query: str) -> dict[str, Any] | None:
         return None
     response = _http_get(
         f"https://www.sofascore.com/api/v1/search/all?q={quote(q)}",
-        headers=_browser_headers(""),
+        headers=_browser_headers(_session_cookie()),
         timeout=20,
     )
     if response.status_code != 200:
@@ -124,6 +132,13 @@ def search_sofascore_player(query: str) -> dict[str, Any] | None:
             "teamName": (entity.get("team") or {}).get("name"),
         }
     return None
+
+
+def _session_cookie() -> str:
+    raw = (os.getenv("SOFASCORE_SESSION") or "").strip()
+    if raw.lower().startswith("cookie:"):
+        raw = raw[7:].strip()
+    return raw
 
 
 def _tokens_match(needle: str, haystack: str) -> bool:

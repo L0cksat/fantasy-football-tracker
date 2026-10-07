@@ -1,0 +1,26 @@
+.site-footer {
+  margin-top: auto;
+  padding: 1.25rem 1.5rem 1.75rem;
+  border-top: 1px solid var(--ft-border);
+  background: rgba(7, 20, 13, 0.72);
+  text-align: center;
+}
+
+.site-footer p {
+  margin: 0;
+  max-width: 52rem;
+  margin-inline: auto;
+  color: var(--ft-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.site-footer a {
+  color: var(--ft-lime);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.site-footer a:hover {
+  color: var(--ft-cream);
+}

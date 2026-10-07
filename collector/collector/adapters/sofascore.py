@@ -812,7 +812,9 @@ def _http_get(url: str, headers: dict[str, str], timeout: int) -> Any:
     try:
         from curl_cffi import requests as curl_requests
 
-        return curl_requests.get(url, headers=headers, timeout=timeout, impersonate="chrome")
+        # Chrome impersonation currently gets Cloudflare "challenge" 403s from SofaScore;
+        # Safari 17 TLS profile still passes (same as a real Firefox/Safari Fantasy XHR).
+        return curl_requests.get(url, headers=headers, timeout=timeout, impersonate="safari17_0")
     except ImportError:
         merged = {
             "User-Agent": (

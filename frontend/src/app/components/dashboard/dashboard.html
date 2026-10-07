@@ -108,61 +108,125 @@
         <p class="score">{{ team.teamPoints | number: '1.0-1' }} <span>pts</span></p>
       </div>
 
-      @if (playerOfTheWeek(); as potw) {
-        <div class="gw-potw">
-          <div class="gw-potw-head">
-            <h3>Player of the week</h3>
-            <p>Top scorer from your squad in {{ team.gameweek.name }}.</p>
-          </div>
-          <article
-            class="potw-card"
-            [ngStyle]="{
-              '--potw-primary': team.competition.primaryColor || '#b6f34a',
-              '--potw-secondary': team.competition.secondaryColor || '#eef6e8',
-            }"
-          >
-            <div class="potw-meta">
-              @if (team.competition.logoUrl) {
-                <img
-                  class="potw-comp-logo"
-                  [src]="team.competition.logoUrl"
-                  [alt]="team.competition.name"
-                  (error)="hideImage($event)"
-                />
-              }
-              <div>
-                <span class="potw-comp-name">{{ team.competition.name }}</span>
+      @if (playerOfTheWeek() || allTimeHighestScorer()) {
+        <div class="gw-potw" [class.gw-potw-pair]="!!playerOfTheWeek() && !!allTimeHighestScorer()">
+          @if (playerOfTheWeek(); as potw) {
+            <div class="gw-potw-slot">
+              <div class="gw-potw-head">
+                <h3>Player of the week</h3>
+                <p>Top scorer from your squad in {{ team.gameweek.name }}.</p>
               </div>
-            </div>
+              <article
+                class="potw-card"
+                [ngStyle]="{
+                  '--potw-primary': team.competition.primaryColor || '#b6f34a',
+                  '--potw-secondary': team.competition.secondaryColor || '#eef6e8',
+                }"
+              >
+                <div class="potw-meta">
+                  @if (team.competition.logoUrl) {
+                    <img
+                      class="potw-comp-logo"
+                      [src]="team.competition.logoUrl"
+                      [alt]="team.competition.name"
+                      (error)="hideImage($event)"
+                    />
+                  }
+                  <div>
+                    <span class="potw-comp-name">{{ team.competition.name }}</span>
+                  </div>
+                </div>
 
-            <div class="portrait-stage">
-              @if (potw.playerPortraitUrl) {
-                <img
-                  class="portrait"
-                  [src]="potw.playerPortraitUrl"
-                  [alt]="potw.name"
-                  (error)="hideImage($event)"
-                />
-              } @else {
-                <div class="portrait portrait-fallback" aria-hidden="true"></div>
-              }
-              @if (potw.clubCrestUrl) {
-                <img
-                  class="crest"
-                  [src]="potw.clubCrestUrl"
-                  [alt]="potw.club || 'Club crest'"
-                  (error)="hideImage($event)"
-                />
-              }
-            </div>
+                <div class="portrait-stage">
+                  @if (potw.playerPortraitUrl) {
+                    <img
+                      class="portrait"
+                      [src]="potw.playerPortraitUrl"
+                      [alt]="potw.name"
+                      (error)="hideImage($event)"
+                    />
+                  } @else {
+                    <div class="portrait portrait-fallback" aria-hidden="true"></div>
+                  }
+                  @if (potw.clubCrestUrl) {
+                    <img
+                      class="crest"
+                      [src]="potw.clubCrestUrl"
+                      [alt]="potw.club || 'Club crest'"
+                      (error)="hideImage($event)"
+                    />
+                  }
+                </div>
 
-            <div class="player-copy">
-              <span class="shirt">{{ shirtLabel(potw) }}</span>
-              <strong class="name">{{ potw.name }}</strong>
-              <span class="club">{{ potw.club || '—' }}</span>
-              <span class="gw-label">{{ team.gameweek.name }} · {{ potw.points | number: '1.0-1' }} pts</span>
+                <div class="player-copy">
+                  <span class="shirt">{{ shirtLabel(potw) }}</span>
+                  <strong class="name">{{ potw.name }}</strong>
+                  <span class="club">{{ potw.club || '—' }}</span>
+                  <span class="gw-label">{{ team.gameweek.name }} · {{ potw.points | number: '1.0-1' }} pts</span>
+                </div>
+              </article>
             </div>
-          </article>
+          }
+
+          @if (allTimeHighestScorer(); as legend) {
+            <div class="gw-potw-slot">
+              <div class="gw-potw-head">
+                <h3>All time Highest scorer</h3>
+                <p>Most captain-effective points across every gameweek in this competition.</p>
+              </div>
+              <article
+                class="potw-card"
+                [ngStyle]="{
+                  '--potw-primary': team.competition.primaryColor || '#b6f34a',
+                  '--potw-secondary': team.competition.secondaryColor || '#eef6e8',
+                }"
+              >
+                <div class="potw-meta">
+                  @if (team.competition.logoUrl) {
+                    <img
+                      class="potw-comp-logo"
+                      [src]="team.competition.logoUrl"
+                      [alt]="team.competition.name"
+                      (error)="hideImage($event)"
+                    />
+                  }
+                  <div>
+                    <span class="potw-comp-name">{{ team.competition.name }}</span>
+                  </div>
+                </div>
+
+                <div class="portrait-stage">
+                  @if (legend.playerPortraitUrl) {
+                    <img
+                      class="portrait"
+                      [src]="legend.playerPortraitUrl"
+                      [alt]="legend.name"
+                      (error)="hideImage($event)"
+                    />
+                  } @else {
+                    <div class="portrait portrait-fallback" aria-hidden="true"></div>
+                  }
+                  @if (legend.clubCrestUrl) {
+                    <img
+                      class="crest"
+                      [src]="legend.clubCrestUrl"
+                      [alt]="legend.club || 'Club crest'"
+                      (error)="hideImage($event)"
+                    />
+                  }
+                </div>
+
+                <div class="player-copy">
+                  <span class="shirt">{{ seasonTotalShirt(legend) }}</span>
+                  <strong class="name">{{ legend.name }}</strong>
+                  <span class="club">{{ legend.club || '—' }}</span>
+                  <span class="gw-label"
+                    >{{ legend.gameweeksPlayed }} GW · {{ legend.totalPoints | number: '1.0-1' }} pts</span
+                  >
+                </div>
+              </article>
+            </div>
+          }
         </div>
       }
 
@@ -711,6 +775,57 @@
           }
         }
       }
+    </section>
+  }
+
+  @if (squadSeasonTotals().length) {
+    <section class="panel season-totals">
+      <div class="panel-head">
+        <div>
+          <h2>Total points scored</h2>
+          <p class="muted">Season totals for your current squad and {{ reserveHeading().toLowerCase() }}, highest first.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Player</th>
+              <th>Pos</th>
+              <th>Club</th>
+              <th class="num">GWs</th>
+              <th class="num">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of squadSeasonTotals(); track row.playerId; let i = $index) {
+              <tr>
+                <td class="num">{{ i + 1 }}</td>
+                <td>
+                  <span class="player">
+                    @if (row.playerPortraitUrl) {
+                      <img class="portrait" [src]="row.playerPortraitUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                    }
+                    <span>{{ row.name }}</span>
+                  </span>
+                </td>
+                <td>{{ row.position || '—' }}</td>
+                <td>
+                  <span class="club">
+                    @if (row.clubCrestUrl) {
+                      <img class="crest" [src]="row.clubCrestUrl" alt="" width="24" height="24" (error)="hideImage($event)">
+                    }
+                    {{ row.club || '—' }}
+                  </span>
+                </td>
+                <td class="num">{{ row.gameweeksPlayed }}</td>
+                <td class="num">{{ row.totalPoints | number: '1.0-1' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     </section>
   }
 

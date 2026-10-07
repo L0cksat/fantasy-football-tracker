@@ -1,0 +1,9 @@
+.ft-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ft-shell-main {
+  flex: 1 0 auto;
+}
