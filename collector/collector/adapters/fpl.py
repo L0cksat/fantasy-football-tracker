@@ -341,8 +341,25 @@ def _resolve_sofascore_player(
         directory=directory,
     )
     if hit is None:
-        query = " ".join(part for part in (element.get("web_name"), club_name) if part)
-        hit = search_sofascore_player(query)
+        # Prefer bare name queries — appending FPL short clubs ("Man Utd") often 0-results.
+        queries = [
+            " ".join(
+                part
+                for part in (element.get("first_name"), element.get("second_name"))
+                if part
+            ).strip(),
+            str(element.get("web_name") or "").strip(),
+            " ".join(part for part in (element.get("web_name"), club_name) if part).strip(),
+        ]
+        seen: set[str] = set()
+        for query in queries:
+            key = query.casefold()
+            if not query or key in seen:
+                continue
+            seen.add(key)
+            hit = search_sofascore_player(query)
+            if hit:
+                break
     cache[element_id] = hit
     if hit and hit.get("playerId") is not None:
         id_cache[element_id] = str(hit["playerId"])

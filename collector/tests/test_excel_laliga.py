@@ -95,6 +95,34 @@ def test_import_excel_maps_squad_and_transfers(tmp_path: Path):
     assert sold.counterpart == "Otro Manager FC"
 
 
+def test_squads_forward_fill_blank_gameweek_cells(tmp_path: Path):
+    """Excel often fills gameweek / teamPoints only on the first player of a block."""
+    path = tmp_path / "forward-fill.xlsx"
+    book = Workbook()
+    book.active.title = "Read me"
+    _competition(book)
+    squads = book.create_sheet("Squads")
+    squads.append(list(_SQUADS_HEADERS))
+    squads.append([8, "GW8", "finished", 35, "Starters First", "GK", "Sevilla", "starter", 2, 6, 10, "", ""])
+    squads.append([None, None, None, None, "Carried Player", "DEF", "Sevilla", "squad", 1, None, 8, "", ""])
+    # New week with blank number cell but GW9 label — must not stay stuck on 8.
+    squads.append([None, "GW9", "finished", 40, "Week Nine", "FWD", "Sevilla", "starter", 5, 7, 9, "", ""])
+    transfers = book.create_sheet("Transfers")
+    transfers.append(list(_TRANSFERS_HEADERS))
+    transfers.append([8, "GW8", "Bought", "New Buy", "Sevilla", "MID", 5, "Market", "", ""])
+    transfers.append([None, None, "Sold", "Old Sell", "Sevilla", "MID", 4, "Market", "", ""])
+    book.save(path)
+
+    snapshots, batch = load_workbook_payloads(path)
+    assert [item.gameweek["number"] for item in snapshots] == [8, 9]
+    assert snapshots[0].teamPoints == 35
+    assert [pick.player.name for pick in snapshots[0].picks] == ["Starters First", "Carried Player"]
+    assert snapshots[1].picks[0].player.name == "Week Nine"
+    assert batch is not None
+    assert batch.rounds[0].number == 8
+    assert len(batch.rounds[0].transfers) == 2
+
+
 def test_import_excel_can_filter_gameweek(tmp_path: Path):
     path = tmp_path / "weeks.xlsx"
     book = Workbook()

@@ -1,4 +1,8 @@
-from collector.adapters.sofascore_directory import club_key, resolve_sofascore_player
+from collector.adapters.sofascore_directory import (
+    club_key,
+    normalize_tournament_player,
+    resolve_sofascore_player,
+)
 
 
 DIRECTORY = [
@@ -67,3 +71,45 @@ def test_resolve_matches_unique_surname_token():
         directory=directory,
     )
     assert hit is not None and hit["playerId"] == 824959
+
+
+def test_normalize_flattens_nested_tournament_player_rows():
+    nested = {
+        "player": {"id": 964753, "name": "Senne Lammens", "shortName": "S. Lammens"},
+        "team": {"id": 35, "name": "Manchester United"},
+    }
+    assert normalize_tournament_player(nested) == {
+        "playerId": 964753,
+        "playerName": "Senne Lammens",
+        "teamId": 35,
+        "teamName": "Manchester United",
+    }
+
+
+def test_resolve_matches_nested_man_utd_directory_rows():
+    directory = [
+        {
+            "player": {"id": 964753, "name": "Senne Lammens"},
+            "team": {"id": 35, "name": "Manchester United"},
+        },
+        {
+            "player": {"id": 886363, "name": "Matheus Cunha"},
+            "team": {"id": 35, "name": "Manchester United"},
+        },
+    ]
+    lammens = resolve_sofascore_player(
+        web_name="Lammens",
+        first_name="Senne",
+        second_name="Lammens",
+        club="Man Utd",
+        directory=directory,
+    )
+    cunha = resolve_sofascore_player(
+        web_name="Cunha",
+        first_name="Matheus",
+        second_name="Cunha",
+        club="Man Utd",
+        directory=directory,
+    )
+    assert lammens is not None and lammens["playerId"] == 964753
+    assert cunha is not None and cunha["playerId"] == 886363

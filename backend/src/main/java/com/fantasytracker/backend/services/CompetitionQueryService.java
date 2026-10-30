@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -345,8 +346,8 @@ public class CompetitionQueryService {
 	}
 
 	/**
-	 * Official LaLiga only: most gameweeks as a starter; ties broken by total points scored
-	 * for the team in those starter weeks.
+	 * Official LaLiga only: most unique gameweeks owned (XI or squad). Ties broken by total
+	 * points scored for the team in those owned weeks (higher wins).
 	 */
 	private TeamViewResponse.LongestServingPlayer findLongestServingPlayer(
 			Competition competition,
@@ -359,21 +360,21 @@ public class CompetitionQueryService {
 			return null;
 		}
 
-		Map<Long, List<SquadPick>> startersByPlayer = new HashMap<>();
+		Map<Long, List<SquadPick>> picksByPlayer = new HashMap<>();
 		for (SquadPick pick : picks) {
-			if (pick.getRole() == null || !"starter".equalsIgnoreCase(pick.getRole())) {
+			if (pick.getPlayer() == null || pick.getGameweek() == null) {
 				continue;
 			}
-			startersByPlayer
+			picksByPlayer
 					.computeIfAbsent(pick.getPlayer().getId(), ignored -> new ArrayList<>())
 					.add(pick);
 		}
-		if (startersByPlayer.isEmpty()) {
+		if (picksByPlayer.isEmpty()) {
 			return null;
 		}
 
-		Set<Long> playerIds = startersByPlayer.keySet();
-		Set<Long> gameweekIds = startersByPlayer.values().stream()
+		Set<Long> playerIds = picksByPlayer.keySet();
+		Set<Long> gameweekIds = picksByPlayer.values().stream()
 				.flatMap(List::stream)
 				.map(pick -> pick.getGameweek().getId())
 				.collect(Collectors.toSet());
@@ -388,27 +389,35 @@ public class CompetitionQueryService {
 		}
 
 		SquadPick bestPick = null;
-		int bestStarts = -1;
+		int bestOwned = -1;
 		BigDecimal bestPoints = BigDecimal.ZERO;
-		for (Map.Entry<Long, List<SquadPick>> entry : startersByPlayer.entrySet()) {
-			List<SquadPick> starterWeeks = entry.getValue();
-			int starts = starterWeeks.size();
+		for (Map.Entry<Long, List<SquadPick>> entry : picksByPlayer.entrySet()) {
+			Map<Long, SquadPick> uniqueWeeks = new HashMap<>();
+			for (SquadPick pick : entry.getValue()) {
+				Long gwId = pick.getGameweek().getId();
+				SquadPick existing = uniqueWeeks.get(gwId);
+				if (existing == null
+						|| ("starter".equalsIgnoreCase(pick.getRole())
+								&& !"starter".equalsIgnoreCase(existing.getRole()))) {
+					uniqueWeeks.put(gwId, pick);
+				}
+			}
+			int owned = uniqueWeeks.size();
 			BigDecimal total = BigDecimal.ZERO;
 			SquadPick latest = null;
-			for (SquadPick pick : starterWeeks) {
-				BigDecimal weekPoints = pointsByPair.getOrDefault(
+			for (SquadPick pick : uniqueWeeks.values()) {
+				total = total.add(pointsByPair.getOrDefault(
 						pick.getPlayer().getId() + ":" + pick.getGameweek().getId(),
-						BigDecimal.ZERO);
-				total = total.add(weekPoints);
+						BigDecimal.ZERO));
 				if (latest == null
 						|| pick.getGameweek().getNumber() > latest.getGameweek().getNumber()) {
 					latest = pick;
 				}
 			}
 			if (bestPick == null
-					|| starts > bestStarts
-					|| (starts == bestStarts && total.compareTo(bestPoints) > 0)) {
-				bestStarts = starts;
+					|| owned > bestOwned
+					|| (owned == bestOwned && total.compareTo(bestPoints) > 0)) {
+				bestOwned = owned;
 				bestPoints = total;
 				bestPick = latest;
 			}
@@ -429,7 +438,7 @@ public class CompetitionQueryService {
 				club,
 				ClubCrests.url(competition.getSource(), clubExternalId, club),
 				shirtNumberOf(bestPick),
-				bestStarts,
+				bestOwned,
 				bestPoints);
 	}
 
@@ -443,12 +452,12 @@ public class CompetitionQueryService {
 			List<TeamViewResponse.TransferView> views = new ArrayList<>();
 			for (GameweekTransfer row : official) {
 				if (row.getPlayerIn() != null) {
-					views.add(toTransfer("in", competition.getSource(), row.getPlayerIn(), row.getPriceIn(),
-							row.getCounterpart()));
+					views.add(toTransfer("in", competition.getSource(), team, gameweek, row.getPlayerIn(),
+							row.getPriceIn(), row.getCounterpart()));
 				}
 				if (row.getPlayerOut() != null) {
-					views.add(toTransfer("out", competition.getSource(), row.getPlayerOut(), row.getPriceOut(),
-							row.getCounterpart()));
+					views.add(toTransfer("out", competition.getSource(), team, gameweek, row.getPlayerOut(),
+							row.getPriceOut(), row.getCounterpart()));
 				}
 			}
 			return views;
@@ -510,17 +519,20 @@ public class CompetitionQueryService {
 	private TeamViewResponse.TransferView toTransfer(
 			String direction,
 			String source,
-			Player player,
-			BigDecimal price) {
-		return toTransfer(direction, source, player, price, null);
-	}
-
-	private TeamViewResponse.TransferView toTransfer(
-			String direction,
-			String source,
+			FantasyTeam team,
+			Gameweek gameweek,
 			Player player,
 			BigDecimal price,
 			String counterpart) {
+		SquadPick clubPick = resolveTransferClubPick(team, gameweek, player, direction);
+		String club = clubOf(clubPick);
+		String clubExternalId = clubExternalIdOf(clubPick);
+		if (club == null || club.isBlank()) {
+			club = player.getClub();
+		}
+		if (clubExternalId == null || clubExternalId.isBlank()) {
+			clubExternalId = player.getClubExternalId();
+		}
 		return new TeamViewResponse.TransferView(
 				direction,
 				player.getId(),
@@ -528,11 +540,45 @@ public class CompetitionQueryService {
 				player.getName(),
 				PlayerPortraits.url(source, player.getExternalId()),
 				player.getPosition(),
-				player.getClub(),
-				ClubCrests.url(source, player.getClubExternalId(), player.getClub()),
+				club,
+				ClubCrests.url(source, clubExternalId, club),
 				price,
 				counterpart,
 				TransferChannels.channel(counterpart));
+	}
+
+	/**
+	 * Transfers share the global Player row across SofaScore comps, so Nations League can leave
+	 * Ireland on the player while LaLiga picks still store Real Betis. Prefer pick-scoped club.
+	 */
+	private SquadPick resolveTransferClubPick(
+			FantasyTeam team,
+			Gameweek gameweek,
+			Player player,
+			String direction) {
+		Optional<SquadPick> sameWeek = squadPickRepository
+				.findByFantasyTeam_IdAndPlayer_IdAndGameweek_Id(team.getId(), player.getId(), gameweek.getId());
+		if (sameWeek.isPresent()) {
+			return sameWeek.get();
+		}
+		if ("out".equals(direction)) {
+			Long competitionId = team.getCompetition() != null
+					? team.getCompetition().getId()
+					: gameweek.getCompetition().getId();
+			Gameweek previous = previousGameweek(competitionId, gameweek.getNumber());
+			if (previous != null) {
+				Optional<SquadPick> prior = squadPickRepository
+						.findByFantasyTeam_IdAndPlayer_IdAndGameweek_Id(
+								team.getId(), player.getId(), previous.getId());
+				if (prior.isPresent()) {
+					return prior.get();
+				}
+			}
+		}
+		return squadPickRepository.findByFantasyTeam_Id(team.getId()).stream()
+				.filter(pick -> pick.getPlayer() != null && player.getId().equals(pick.getPlayer().getId()))
+				.max(Comparator.comparing(pick -> pick.getGameweek().getNumber()))
+				.orElse(null);
 	}
 
 	/** Prefer pick-scoped club so club comps and national-team comps stay separate. */
@@ -578,12 +624,13 @@ public class CompetitionQueryService {
 		return new TeamViewResponse.TransferMarketSummary(
 				summarizeMarket(week),
 				summarizeMarket(all),
-				findMostExpensivePurchase(competition.getSource(), all),
-				findHighestSale(competition.getSource(), all));
+				findMostExpensivePurchase(competition.getSource(), team, all),
+				findHighestSale(competition.getSource(), team, all));
 	}
 
 	private TeamViewResponse.TransferHighlight findMostExpensivePurchase(
 			String source,
+			FantasyTeam team,
 			List<GameweekTransfer> rows) {
 		GameweekTransfer best = null;
 		for (GameweekTransfer row : rows) {
@@ -597,11 +644,13 @@ public class CompetitionQueryService {
 		if (best == null) {
 			return null;
 		}
-		return toHighlight(source, best.getPlayerIn(), best.getPriceIn(), best.getCounterpart(), best.getGameweek());
+		return toHighlight(source, team, best.getPlayerIn(), best.getPriceIn(), best.getCounterpart(),
+				best.getGameweek(), "in");
 	}
 
 	private TeamViewResponse.TransferHighlight findHighestSale(
 			String source,
+			FantasyTeam team,
 			List<GameweekTransfer> rows) {
 		GameweekTransfer best = null;
 		for (GameweekTransfer row : rows) {
@@ -615,24 +664,42 @@ public class CompetitionQueryService {
 		if (best == null) {
 			return null;
 		}
-		return toHighlight(source, best.getPlayerOut(), best.getPriceOut(), best.getCounterpart(), best.getGameweek());
+		return toHighlight(source, team, best.getPlayerOut(), best.getPriceOut(), best.getCounterpart(),
+				best.getGameweek(), "out");
 	}
 
 	private TeamViewResponse.TransferHighlight toHighlight(
 			String source,
+			FantasyTeam team,
 			Player player,
 			BigDecimal price,
 			String counterpart,
-			Gameweek gameweek) {
+			Gameweek gameweek,
+			String direction) {
+		SquadPick clubPick = gameweek != null
+				? resolveTransferClubPick(team, gameweek, player, direction)
+				: null;
+		String club = clubOf(clubPick);
+		String clubExternalId = clubExternalIdOf(clubPick);
+		if (club == null || club.isBlank()) {
+			club = player.getClub();
+		}
+		if (clubExternalId == null || clubExternalId.isBlank()) {
+			clubExternalId = player.getClubExternalId();
+		}
+		Integer shirt = shirtNumberOf(clubPick);
+		if (shirt == null) {
+			shirt = player.getShirtNumber();
+		}
 		return new TeamViewResponse.TransferHighlight(
 				player.getId(),
 				player.getExternalId(),
 				player.getName(),
 				PlayerPortraits.url(source, player.getExternalId()),
 				player.getPosition(),
-				player.getClub(),
-				ClubCrests.url(source, player.getClubExternalId(), player.getClub()),
-				player.getShirtNumber(),
+				club,
+				ClubCrests.url(source, clubExternalId, club),
+				shirt,
 				price,
 				counterpart,
 				TransferChannels.channel(counterpart),

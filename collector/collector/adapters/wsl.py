@@ -448,7 +448,16 @@ def _load_cached_sofascore_players(path: Path) -> list[dict[str, Any]]:
         return []
     if not isinstance(payload, list):
         return []
-    return [row for row in payload if isinstance(row, dict) and row.get("playerId") is not None]
+    from collector.adapters.sofascore_directory import normalize_tournament_player
+
+    flattened: list[dict[str, Any]] = []
+    for row in payload:
+        if not isinstance(row, dict):
+            continue
+        normalized = normalize_tournament_player(row)
+        if normalized is not None:
+            flattened.append(normalized)
+    return flattened
 
 
 def _gameweek_status(

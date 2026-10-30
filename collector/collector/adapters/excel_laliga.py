@@ -111,14 +111,35 @@ def _snapshots_from_squads(
 ) -> list[Snapshot]:
     rows = _table_rows(workbook["Squads"], _SQUADS_HEADERS, optional=("injured",))
     grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    # Carry week meta down blank cells (Excel often fills gameweek only on the first player row).
+    last_gw: int | None = None
+    last_name: Any = None
+    last_status: Any = None
+    last_points: Any = None
     for row in rows:
+        number = _resolve_gameweek_number(row.get("gameweek"), row.get("gameweekName"), last_gw)
+        if number is not None:
+            row["gameweek"] = number
+            last_gw = number
+        if row.get("gameweekName") not in (None, ""):
+            last_name = row.get("gameweekName")
+        elif last_name is not None:
+            row["gameweekName"] = last_name
+        if row.get("status") not in (None, ""):
+            last_status = row.get("status")
+        elif last_status is not None:
+            row["status"] = last_status
+        if row.get("teamPoints") not in (None, ""):
+            last_points = row.get("teamPoints")
+        elif last_points is not None:
+            row["teamPoints"] = last_points
         name = str(row.get("playerName") or "").strip()
         if not name or name.upper().startswith("EXAMPLE"):
             continue
-        number = _int(row.get("gameweek"), "Squads.gameweek")
-        if gameweek is not None and number != gameweek:
+        resolved = _int(row.get("gameweek"), "Squads.gameweek")
+        if gameweek is not None and resolved != gameweek:
             continue
-        grouped[number].append(row)
+        grouped[resolved].append(row)
     snapshots: list[Snapshot] = []
     for number, items in sorted(grouped.items()):
         first = items[0]
@@ -151,14 +172,24 @@ def _transfers_from_sheet(
         return None
     rows = _table_rows(workbook["Transfers"], _TRANSFERS_HEADERS)
     grouped: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    last_gw: int | None = None
+    last_name: Any = None
     for row in rows:
+        number = _resolve_gameweek_number(row.get("gameweek"), row.get("gameweekName"), last_gw)
+        if number is not None:
+            row["gameweek"] = number
+            last_gw = number
+        if row.get("gameweekName") not in (None, ""):
+            last_name = row.get("gameweekName")
+        elif last_name is not None:
+            row["gameweekName"] = last_name
         name = str(row.get("playerName") or "").strip()
         if not name or name.upper().startswith("EXAMPLE"):
             continue
-        number = _int(row.get("gameweek"), "Transfers.gameweek")
-        if gameweek is not None and number != gameweek:
+        resolved = _int(row.get("gameweek"), "Transfers.gameweek")
+        if gameweek is not None and resolved != gameweek:
             continue
-        grouped[number].append(row)
+        grouped[resolved].append(row)
     if not grouped:
         return None
     rounds: list[TransferRound] = []
@@ -322,6 +353,28 @@ def _digits(value: Any) -> str | None:
     if text.isdigit():
         return text
     return None
+
+
+def _gameweek_from_name(value: Any) -> int | None:
+    """Parse GW8 / Round 8 / Jornada 8 style labels when the number cell is blank."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    match = re.search(r"(\d+)", text)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def _resolve_gameweek_number(raw: Any, name: Any, last: int | None) -> int | None:
+    if raw is not None and str(raw).strip() != "":
+        return int(float(raw))
+    from_name = _gameweek_from_name(name)
+    if from_name is not None:
+        return from_name
+    return last
 
 
 def _int(value: Any, field: str) -> int:

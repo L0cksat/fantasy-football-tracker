@@ -43,6 +43,34 @@ def club_key(name: Any) -> str:
     return _CLUB_ALIASES.get(folded, folded)
 
 
+def normalize_tournament_player(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Flatten SofaScore tournament player rows to {playerId, playerName, teamId, teamName}.
+
+    Live unique-tournament/.../players payloads nest under `player` / `team`; older caches and
+    resolve/search hits already use the flat shape.
+    """
+    if not isinstance(row, dict):
+        return None
+    if row.get("playerId") is not None:
+        return {
+            "playerId": row.get("playerId"),
+            "playerName": row.get("playerName") or row.get("name"),
+            "teamId": row.get("teamId"),
+            "teamName": row.get("teamName"),
+        }
+    player = row.get("player")
+    team = row.get("team")
+    if isinstance(player, dict) and player.get("id") is not None:
+        team = team if isinstance(team, dict) else {}
+        return {
+            "playerId": player.get("id"),
+            "playerName": player.get("name") or player.get("shortName"),
+            "teamId": team.get("id"),
+            "teamName": team.get("name"),
+        }
+    return None
+
+
 def fetch_tournament_players(tournament_id: int) -> list[dict[str, Any]]:
     """SofaScore unique-tournament/{id} current-season player list (same path family as LaLiga 8)."""
     headers = _browser_headers(_session_cookie())
@@ -62,7 +90,12 @@ def fetch_tournament_players(tournament_id: int) -> list[dict[str, Any]]:
         timeout=30,
     )
     players_payload.raise_for_status()
-    return list((players_payload.json() or {}).get("players") or [])
+    flattened: list[dict[str, Any]] = []
+    for row in (players_payload.json() or {}).get("players") or []:
+        normalized = normalize_tournament_player(row if isinstance(row, dict) else None)
+        if normalized is not None:
+            flattened.append(normalized)
+    return flattened
 
 
 def fetch_premier_league_players() -> list[dict[str, Any]]:
@@ -78,11 +111,17 @@ def resolve_sofascore_player(
     directory: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
     """Match an FPL player to a SofaScore Premier League catalog row."""
+    flat_directory = [
+        normalized
+        for item in directory
+        for normalized in [normalize_tournament_player(item if isinstance(item, dict) else None)]
+        if normalized is not None
+    ]
     club_fold = club_key(club)
-    candidates = [item for item in directory if club_key(item.get("teamName")) == club_fold]
+    candidates = [item for item in flat_directory if club_key(item.get("teamName")) == club_fold]
     if not candidates:
         # Club transfers / WSL club renames: fall back to name-only across the full directory.
-        candidates = list(directory)
+        candidates = list(flat_directory)
     full = fold_name(f"{first_name} {second_name}")
     web = fold_name(web_name)
     second = fold_name(second_name)
